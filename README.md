@@ -370,6 +370,10 @@ The following smoke test ran on 2026-08-15 against DeepSeek Harness `0.1.0-rc.6`
 
 This is a loading and smoke test, not a security audit. It does not cover a real provider credential, browser interaction, the LLM reviewer path, or Web settings/YAML persistence.
 
+## Links
+
+Thanks to the [LINUX DO](https://linux.do/) community for their help and support.
+
 ## Security and license
 
 Report vulnerabilities privately through GitHub Security Advisories. Do not submit API keys, credentials, complete prompts, private paths, or unredacted tool arguments. See [SECURITY.md](SECURITY.md).
