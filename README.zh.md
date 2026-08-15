@@ -5,7 +5,7 @@
 [![npm](https://img.shields.io/npm/v/dsh-approve-for-me)](https://www.npmjs.com/package/dsh-approve-for-me)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**规则限定范围，当前会话模型复核，拿不准就交回人工。**
+**规则限定范围 + LLM复核，拿不准就交回人工。**
 
 `dsh-approve-for-me` 是基于 DeepSeek Harness `0.1.0-rc.6` 开发的沙箱扩权审批插件，并会在验证后及时跟进 Harness 新版本。它为重复、边界明确的命令减少确认次数，同时保留 Harness 原生人工审批作为兜底。
 
@@ -39,6 +39,8 @@ dsh web --host 127.0.0.1 --port 3080
 ## Web 配置
 
 进入 `设置 -> 插件 -> 插件配置 -> 帮我批准`。只添加你愿意自动审核的命令前缀，例如：
+<img width="1542" height="1550" alt="web_setting_1" src="https://github.com/user-attachments/assets/ba3df97b-3d35-47b7-a8a4-cd7772c48eb6" />
+
 
 ```text
 Shell:      git status
@@ -73,6 +75,10 @@ dsh plugin --profile web list dsh-approve-for-me --depth 0
 ```
 
 `list` 输出的是该 Profile 实际加载的版本。其 package manifest 和 lockfile 位于 `$DSH_HOME\profiles\web`；本机路径是 `C:\Users\zariba\.dsh\profiles\web`。
+
+<img width="1592" height="841" alt="test_01" src="https://github.com/user-attachments/assets/30041b07-ec0d-42c9-aabf-67f619ac50af" />
+（互动的测试集，等完善了规则之后更新出来）
+
 
 ## 完整安装
 
