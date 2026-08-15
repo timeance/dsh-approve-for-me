@@ -1,4 +1,4 @@
-# dsh-approve-for-me
+# dsh-approve-for-me — Automatic sandbox approval for DeepSeek Harness
 
 English | [中文](README.zh.md)
 
@@ -7,7 +7,7 @@ English | [中文](README.zh.md)
 
 **Rules set the boundary. The current session model reviews candidates. Anything uncertain goes back to you.**
 
-`dsh-approve-for-me` is a sandbox escalation approval plugin built and verified against DeepSeek Harness `0.1.0-rc.6`; newer Harness releases will be tracked after validation. It reduces repeated confirmations for predictable commands while retaining Harness's native human approval as the fallback.
+`dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of narrowly allowlisted Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, an optional tool-free LLM reviewer, and native human fallback. Every successful decision grants one `allowed-once` approval, never permanent access. It is validated against DeepSeek Harness `0.1.0-rc.6`; newer Harness releases will be tracked after validation.
 
 Literal prefix allowlist | fixed high-risk checks | tool-free LLM reviewer | native human fallback
 
@@ -302,9 +302,13 @@ Prefixes are parsed and validated literal command prefixes, not regular expressi
 
 ## FAQ
 
-### How does DeepSeek Harness automatically review sandbox escalations?
+### How does DeepSeek Harness automatically approve sandbox escalations?
 
 Install the plugin, define command prefixes, and select the `Approve for me` Access preset. The plugin grants one-time approval only to strictly correlated requests that pass fixed checks, positive rules, and the configured review mode. Everything else remains a human decision.
+
+### Does it replace `Full access`?
+
+No. The plugin keeps the sandbox boundary, grants at most one `allowed-once` approval for the current request, and returns high-risk, unmatched, ambiguous, or failed reviews to Harness's native human approval.
 
 ### Are there built-in rules that work out of the box?
 

@@ -1,13 +1,13 @@
-# dsh-approve-for-me
+# dsh-approve-for-me：DeepSeek Harness 自动沙箱审批
 
 [English](README.md) | 中文
 
 [![npm](https://img.shields.io/npm/v/dsh-approve-for-me)](https://www.npmjs.com/package/dsh-approve-for-me)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**规则限定范围 + LLM复核，拿不准就交回人工。**
+**规则限定范围 + LLM复核，拿不准就交回人工。
 
-`dsh-approve-for-me` 是基于 DeepSeek Harness `0.1.0-rc.6` 开发的沙箱扩权审批插件，并会在验证后及时跟进 Harness 新版本。它为重复、边界明确的命令减少确认次数，同时保留 Harness 原生人工审批作为兜底。
+`dsh-approve-for-me` 是 DeepSeek Harness 的自动沙箱审批（automatic sandbox approval）插件，用于严格 allowlist 的 Shell/PowerShell sandbox escalation。它先执行固定高风险检查和命令前缀规则，再可选调用无工具 LLM reviewer；高危、未匹配、歧义或复核失败的请求交回 Harness 原生人工审批。每次成功只授予一次 `allowed-once`，不会永久授权。当前基于 DeepSeek Harness `0.1.0-rc.6` 验证，新版本会在验证后跟进。
 
 字面前缀 allowlist · 固定高风险检查 · 无工具 LLM reviewer · 原生人工兜底
 
@@ -308,9 +308,13 @@ approve-for-me:
 
 ## 常见问题
 
-### DeepSeek Harness 如何自动审批 sandbox escalation？
+### 如何在 DeepSeek Harness 中自动审批 sandbox escalation？
 
 安装插件，定义命令前缀，并选择 `Approve for me` Access preset。插件只为严格关联、通过固定检查且满足正向规则的请求返回一次性批准，其余请求继续由用户处理。
+
+### 它会替代 `Full access` 吗？
+
+不会。插件保留沙箱边界，每次最多只为当前请求授予一次 `allowed-once`；高危、未匹配、歧义或复核失败的请求仍交给 Harness 原生人工审批。
 
 ### 是否有开箱即用的内置规则？
 
