@@ -361,6 +361,15 @@ npm pack --json
 
 Use a fresh, isolated `DSH_HOME` for runtime verification. Check the Web card, persistence, YAML hot reload, session-model inheritance, and non-Web Host activation separately.
 
+### Runtime evidence
+
+The following smoke test ran on 2026-08-15 against DeepSeek Harness `0.1.0-rc.6`, using the `0.1.0-beta.2` tarball built from source commit `e8c3bdb`:
+
+- Headless: an isolated smoke patch selected the `approve-for-me` preset, `rules-only`, and one literal `pwsh` prefix. A loopback-only mock LLM returned a scripted `pwsh Get-Location` escalation. The session log recorded `approval/asked`, `approval/decided` with `allowed-once`, the real command output, and a successful `dsh` exit (`0`).
+- Web: a separate isolated Web Profile installed the same tarball. `dsh --profile web --host 127.0.0.1 --port 0` started successfully; the root page returned HTTP `200` and contained the installed plugin bundle marker.
+
+This is a loading and smoke test, not a security audit. It does not cover a real provider credential, browser interaction, the LLM reviewer path, or Web settings/YAML persistence.
+
 ## Security and license
 
 Report vulnerabilities privately through GitHub Security Advisories. Do not submit API keys, credentials, complete prompts, private paths, or unredacted tool arguments. See [SECURITY.md](SECURITY.md).

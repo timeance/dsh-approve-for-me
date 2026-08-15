@@ -367,6 +367,15 @@ npm pack --json
 
 运行验证应使用新的隔离 `DSH_HOME`，分别检查 Web 卡片、配置持久化、YAML 热加载、会话模型继承和非 Web Host 激活。
 
+### 运行证据
+
+以下 smoke test 于 2026-08-15 执行，使用 DeepSeek Harness `0.1.0-rc.6`，以及由源码提交 `e8c3bdb` 构建的 `0.1.0-beta.2` tarball：
+
+- Headless：隔离测试 patch 显式选择 `approve-for-me` preset、`rules-only` 和一个字面 `pwsh` 前缀。仅绑定 loopback 的 mock LLM 返回预设的 `pwsh Get-Location` 扩权请求；session 日志记录了 `approval/asked`、结果为 `allowed-once` 的 `approval/decided`、实际命令输出和成功退出（`0`）。
+- Web：独立 Web Profile 安装同一个 tarball。`dsh --profile web --host 127.0.0.1 --port 0` 成功启动；根页面返回 HTTP `200`，并包含已安装插件的 bundle 标记。
+
+这只是加载和 smoke test，不是安全审计。它没有覆盖真实 provider 凭据、浏览器交互、LLM reviewer 路径或 Web 设置/YAML 持久化。
+
 ## 安全与许可证
 
 请通过 GitHub Security Advisories 私下报告漏洞，不要提交 API key、凭据、完整 prompt、私有路径或未脱敏的工具参数。详见 [SECURITY.md](SECURITY.md)。
