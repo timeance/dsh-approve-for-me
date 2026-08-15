@@ -39,7 +39,7 @@ dsh web --host 127.0.0.1 --port 3080
 ## Web 配置
 
 进入 `设置 -> 插件 -> 插件配置 -> 帮我批准`。只添加你愿意自动审核的命令前缀，例如：
-<img width="1542" height="1550" alt="web_setting_1" src="https://github.com/user-attachments/assets/ba3df97b-3d35-47b7-a8a4-cd7772c48eb6" />
+<img width="514" height="517" alt="web_setting_1" src="https://github.com/user-attachments/assets/ba3df97b-3d35-47b7-a8a4-cd7772c48eb6" />
 
 
 ```text
@@ -76,7 +76,7 @@ dsh plugin --profile web list dsh-approve-for-me --depth 0
 
 `list` 输出的是该 Profile 实际加载的版本。其 package manifest 和 lockfile 位于 `$DSH_HOME\profiles\web`；本机路径是 `C:\Users\zariba\.dsh\profiles\web`。
 
-<img width="1592" height="841" alt="test_01" src="https://github.com/user-attachments/assets/30041b07-ec0d-42c9-aabf-67f619ac50af" />
+<img width="530" height="280" alt="test_01" src="https://github.com/user-attachments/assets/30041b07-ec0d-42c9-aabf-67f619ac50af" />
 （互动的测试集，等完善了规则之后更新出来）
 
 
