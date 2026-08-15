@@ -1,0 +1,3 @@
+{
+  "extends": "../deepseek-harness/tsconfig.base.json"
+}

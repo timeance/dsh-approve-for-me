@@ -1,0 +1,21 @@
+- id: permission
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      approve-for-me:
+        sandbox: workspace-write
+        approval: ask
+        name: Approve for me
+        description: Review sandbox escalation with deterministic rules and an optional reviewer model.
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+
+- insert:
+    - id: approve-for-me
+      name: dsh-approve-for-me
