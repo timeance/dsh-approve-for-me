@@ -26,7 +26,7 @@ const validSettings: ApprovalSettings = {
   mode: "rules-and-llm",
   rules: {
     commandPrefixes: [
-      { tool: "shell", prefix: "pnpm test" },
+      { tool: "shell", prefix: "git status" },
       { tool: "pwsh", prefix: "Get-ChildItem" },
     ],
     reviewerInstructions: "Approve read-only checks inside the workspace.",
@@ -46,7 +46,7 @@ const associated: EscalationAssociation = {
     agent,
     callId: "call-1",
     toolName: "shell",
-    command: "pnpm test",
+    command: "git status",
     justification: "Run the focused tests.",
     requestedPermission: "danger-full-access",
   },
@@ -55,7 +55,7 @@ const associated: EscalationAssociation = {
 const baseDecision: ApprovalDecisionInput = {
   mode: "rules-only",
   association: associated,
-  rules: { status: "matched", segmentCount: 1, matchedPrefixes: ["pnpm test"] },
+  rules: { status: "matched", segmentCount: 1, matchedPrefixes: ["git status"] },
   risk: { status: "safe" },
 };
 
@@ -191,7 +191,7 @@ describe("associateShellEscalation", () => {
     callId: "call-1",
     toolName: "bash",
     args: {
-      command: "pnpm test",
+      command: "git status",
       sandbox_permissions: "danger-full-access",
       justification: "Run the focused tests.",
     },
@@ -314,7 +314,7 @@ describe("fixed high-risk signals", () => {
   });
 
   it.each([
-    ["pnpm test --run core", "shell"],
+    ["npm view package-name", "shell"],
     ["git status --short", "shell"],
     ["gh --repo owner/repo pr view 123", "shell"],
     ["gh auth status", "shell"],

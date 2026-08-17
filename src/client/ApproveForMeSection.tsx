@@ -14,6 +14,7 @@ import type {
 import {
   buildSettingsMutation,
   createSettingsDraft,
+  isReviewerRouteAvailable,
   sameEditableSettings,
   type SettingsDraft,
   validateSettingsDraft,
@@ -115,8 +116,8 @@ export function ApproveForMeSection(
   const validation = useMemo(() => (
     draft === undefined
       ? { provider: undefined, model: undefined, shellRules: [], pwshRules: [] } as const
-      : validateSettingsDraft(draft, state.modelGroups)
-  ), [draft, state.modelGroups])
+      : validateSettingsDraft(draft, state.modelGroups, state.value)
+  ), [draft, state.modelGroups, state.value])
 
   const selectedProvider = state.modelGroups.find(group =>
     group.id === draft?.provider)
@@ -133,7 +134,7 @@ export function ApproveForMeSection(
   const reviewerMissing = draft?.mode === 'rules-and-llm'
     && state.modelsStatus !== 'idle'
     && state.modelsStatus !== 'loading'
-    && (validation.provider !== undefined || validation.model !== undefined)
+    && !isReviewerRouteAvailable(draft, state.modelGroups)
   const busy = state.status === 'loading'
     || state.status === 'saving'
     || state.status === 'resetting'

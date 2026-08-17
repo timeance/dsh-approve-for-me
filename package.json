@@ -1,6 +1,6 @@
 {
     "name": "dsh-approve-for-me",
-    "version": "0.1.0-beta.2",
+    "version": "0.2.0",
     "description": "Rule-gated automatic approval for DeepSeek Harness sandbox escalations with an optional LLM reviewer and native human fallback.",
     "keywords": [
         "deepseek-harness",
@@ -136,6 +136,6 @@
     },
     "packageManager": "pnpm@11.7.0",
     "publishConfig": {
-        "tag": "beta"
+        "tag": "latest"
     }
 }

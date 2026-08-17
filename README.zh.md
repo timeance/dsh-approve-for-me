@@ -5,7 +5,7 @@
 [![npm](https://img.shields.io/npm/v/dsh-approve-for-me)](https://www.npmjs.com/package/dsh-approve-for-me)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**规则限定范围 + LLM复核，拿不准就交回人工。
+**规则限定范围 + LLM复核，拿不准就交回人工。**
 
 `dsh-approve-for-me` 是 DeepSeek Harness 的自动沙箱审批（automatic sandbox approval）插件，用于严格 allowlist 的 Shell/PowerShell sandbox escalation。它先执行固定高风险检查和命令前缀规则，再可选调用无工具 LLM reviewer；高危、未匹配、歧义或复核失败的请求交回 Harness 原生人工审批。每次成功只授予一次 `allowed-once`，不会永久授权。当前基于 DeepSeek Harness `0.1.0-rc.6` 验证，新版本会在验证后跟进。
 
@@ -46,13 +46,15 @@ dsh web --host 127.0.0.1 --port 3080
 Shell:      git status
 Shell:      git diff
 PowerShell: Get-Location
-PowerShell: Get-Content
+PowerShell: Get-Content -LiteralPath README.md
 ```
 
 然后为目标 agent 或 session 选择 `Approve for me` Access preset。
 
 > [!IMPORTANT]
 > `commandPrefixes` 默认为空。只安装插件不会自动批准任何命令，必须先定义正向规则。
+
+规则匹配的是 token 前缀，不是整条命令完全相等，因此后面仍可追加参数。请明确写出子命令和路径。即使前缀匹配，`npm test`、`pnpm test` 等包管理器生命周期脚本、带路径的可执行文件、直接脚本、wrapper、已知的 PowerShell 写入 alias，以及未知包管理器动作也会交回原生人工审批。
 
 Web 卡片只是可选编辑器。Host 审批核心也能在 headless Profile 中运行，并且可以只使用 YAML 配置。
 
@@ -183,7 +185,7 @@ approve-for-me:
       - tool: shell
         prefix: git diff
       - tool: pwsh
-        prefix: Get-Content
+        prefix: Get-Content -LiteralPath README.md
     reviewerInstructions: >-
       Only allow read-only repository inspection.
   reviewer:
@@ -256,7 +258,7 @@ approve-for-me:
 - 固定高风险检查始终先于用户规则和 reviewer 执行。
 - reviewer 每次使用全新、无工具的 agent。
 
-内置高风险检查会识别保守 shell 解析失败，以及常见的文件或权限修改、系统或包管理变更、Git/GitHub 写操作、动态命令执行、凭据访问和外部写入。
+内置高风险检查是有限、保守的分类器，不能证明未命中的命令一定安全。它会识别 shell 解析失败、常见文件或权限修改、系统和包管理变更、Git/GitHub 写操作、包管理器生命周期脚本、带路径的可执行文件、动态命令执行、凭据访问和外部写入。
 
 这里的“高风险”结果是**禁止插件自动批准并转人工**，不是直接拒绝命令。这样可以避免插件用一份通用规则替用户做不可逆决定。
 
@@ -318,7 +320,7 @@ approve-for-me:
 
 ### 是否有开箱即用的内置规则？
 
-有不可配置的高风险检查，但没有内置正向 allowlist。前者防止常见高风险请求被插件自动批准；后者必须由用户按自己的项目和威胁模型设置。
+有不可配置的高风险检查，但没有内置正向 allowlist。前者筛查一组有限且保守的已知高风险形态，并不是完整的命令语义分析；后者必须由用户按自己的项目和威胁模型设置。
 
 ### 高风险命令会被插件直接拒绝吗？
 

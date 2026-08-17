@@ -56,15 +56,18 @@ export function clientBundle(id: string, nodeEntries: readonly string[]): UserCo
       dts: false,
       sourcemap: true,
       clean: false,
-      external: [...CLIENT_EXTERNALS],
+      deps: {
+        neverBundle: [...CLIENT_EXTERNALS],
+        alwaysBundle: (moduleId: string) =>
+          CLIENT_EXTERNALS.includes(moduleId as typeof CLIENT_EXTERNALS[number])
+            ? undefined
+            : true,
+      },
       define: {
         'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
         'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
         'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
       },
-      noExternal: (moduleId: string) => CLIENT_EXTERNALS.includes(moduleId as typeof CLIENT_EXTERNALS[number])
-        ? undefined
-        : true,
       plugins: [
         {
           name: 'dsh-client-bundle-purity',

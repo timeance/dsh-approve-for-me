@@ -43,22 +43,40 @@ export function createSettingsDraft(value: ApproveForMeSettings): SettingsDraft 
   }
 }
 
+export function isReviewerRouteAvailable(
+  draft: SettingsDraft,
+  modelGroups: readonly ReviewerProviderOption[],
+): boolean {
+  if (draft.provider === '' && draft.model === '') return true
+  const provider = modelGroups.find(group => group.id === draft.provider)
+  return provider?.models.some(model => model.id === draft.model) === true
+}
+
 export function validateSettingsDraft(
   draft: SettingsDraft,
   modelGroups: readonly ReviewerProviderOption[],
+  current?: ApproveForMeSettings,
 ): SettingsDraftErrors {
   const inheritsRequestRoute = draft.provider === '' && draft.model === ''
   const provider = modelGroups.find(group => group.id === draft.provider)
   const model = provider?.models.find(option => option.id === draft.model)
+  const routeWasActive = current?.mode === 'rules-and-llm'
+  const preservesCurrentRoute = routeWasActive
+    && draft.provider.length > 0
+    && draft.provider === current?.reviewer?.provider
+    && draft.model.length > 0
+    && draft.model === current?.reviewer?.model
 
   return {
     provider: draft.mode === 'rules-and-llm'
       && !inheritsRequestRoute
+      && preservesCurrentRoute === false
       && provider === undefined
       ? 'provider-required'
       : undefined,
     model: draft.mode === 'rules-and-llm'
       && !inheritsRequestRoute
+      && preservesCurrentRoute === false
       && model === undefined
       ? 'model-required'
       : undefined,

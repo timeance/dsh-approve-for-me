@@ -214,6 +214,43 @@ describe('approve-for-me Host integration', () => {
     expect(host.start).not.toHaveBeenCalled()
   })
 
+  it.each([
+    {
+      tool: 'shell', prefix: 'find .', command: 'find . -delete', name: 'bash',
+    },
+    {
+      tool: 'shell', prefix: 'pnpm', command: 'pnpm test', name: 'bash',
+    },
+    {
+      tool: 'pwsh', prefix: 'Get-Content', command: 'Get-Content -Path:Env:DEEPSEEK_API_KEY', name: 'pwsh',
+    },
+    {
+      tool: 'shell', prefix: 'apt', command: 'apt purge package', name: 'bash',
+    },
+    {
+      tool: 'shell', prefix: 'npm audit', command: 'npm audit', name: 'bash',
+    },
+    {
+      tool: 'pwsh', prefix: 'Stop-Process', command: 'Stop-Process -Name dsh', name: 'pwsh',
+    },
+    {
+      tool: 'pwsh', prefix: 'md', command: 'md newdir', name: 'pwsh',
+    },
+  ] as const)('delegates a matching $command fixed-risk request', async ({ tool, prefix, command, name }) => {
+    const host = fakeHost(settings('rules-only', [{ tool, prefix }]))
+    const agent = agentWithVisibleInputs()
+    const native = vi.fn<() => Promise<ApprovalOutcome>>().mockResolvedValue('rejected')
+
+    await expect(decide(
+      host,
+      execution(agent, 'call-risk-regression', command, { name }),
+      undefined,
+      native,
+    )).resolves.toBe('rejected')
+    expect(native).toHaveBeenCalledOnce()
+    expect(host.start).not.toHaveBeenCalled()
+  })
+
   it('uses an explicit reviewer route over the session header and agent options without tools', async () => {
     const dispose = vi.fn().mockResolvedValue(undefined)
     const start = vi.fn().mockResolvedValue({
