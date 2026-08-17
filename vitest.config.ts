@@ -31,10 +31,10 @@ function standardDecoratorPlugin() {
 export default defineConfig({
   plugins: [
     tsconfigPaths({
-      root: '..',
+      root: import.meta.dirname,
       projects: [
-        'dsh-approve-for-me/tsconfig.vitest.json',
-        'deepseek-harness/tsconfig.base.json',
+        'tsconfig.vitest.json',
+        '../deepseek-harness/tsconfig.base.json',
       ],
     }),
     standardDecoratorPlugin(),

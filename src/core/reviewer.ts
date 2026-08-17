@@ -89,14 +89,24 @@ const TRUSTED_ROLES = new Set<TrustedTranscriptRole>(["user", "developer", "user
 
 function applyRedactions(value: string): string {
   return value
-    .replace(/-----BEGIN [^-\r\n]+ PRIVATE KEY-----[\s\S]*?-----END [^-\r\n]+ PRIVATE KEY-----/giu, REDACTION)
+    .replace(/-----BEGIN (?:[^-\r\n]+ )?PRIVATE KEY-----[\s\S]*?(?:-----END (?:[^-\r\n]+ )?PRIVATE KEY-----|$)/giu, REDACTION)
     .replace(/\b(?:github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{16})\b/gu, REDACTION)
     .replace(/\b(Authorization\s*:\s*)(?:Bearer|Basic)\s+[^\s,;]+/giu, `$1${REDACTION}`)
     .replace(/([A-Za-z][A-Za-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gu, `$1${REDACTION}@`)
     .replace(
-      /\b(api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd)\b(\s*[=:]\s*)(["']?)[^\s,"'};]+\3/giu,
+      /\b(api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd)\b(\s*[=:]\s*)(["'])(?:\\.|(?!\3)[^\r\n])*(?:\3|$)/gimu,
       (_match, name: string, separator: string, quote: string) =>
         `${name}${separator}${quote}${REDACTION}${quote}`,
+    )
+    .replace(
+      /\b(api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd)\b(\s*[=:]\s*)[^\s,"'};]+/giu,
+      (_match, name: string, separator: string) =>
+        `${name}${separator}${REDACTION}`,
+    )
+    .replace(
+      /(^|[^A-Za-z0-9_-])(-{1,2}(?:api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd))(\s+)(?:(["'])(?:\\.|(?!\4)[^\r\n])*(?:\4|$)|([^\s,;]+))/gimu,
+      (_match, boundary: string, option: string, separator: string, quote: string | undefined) =>
+        `${boundary}${option}${separator}${quote ?? ""}${REDACTION}${quote ?? ""}`,
     )
     .replace(
       /(["'](?:api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd)["']\s*:\s*)["'][^"']+["']/giu,
@@ -154,12 +164,14 @@ export function buildReviewerPrompt(input: ReviewerPromptInput): ReviewerPromptR
     JSON.stringify(sanitizedTranscript),
     input.limits.trustedTranscriptChars,
   ).text;
+  const sanitizeRequestField = (value: string) =>
+    sanitizeUntrustedText(value, input.limits.untrustedToolDataChars).text;
   const untrustedJson = sanitizeUntrustedText(
     JSON.stringify({
-      toolName: input.untrustedRequest.toolName,
-      command: input.untrustedRequest.command,
-      justification: input.untrustedRequest.justification,
-      reason: input.untrustedRequest.reason,
+      toolName: sanitizeRequestField(input.untrustedRequest.toolName),
+      command: sanitizeRequestField(input.untrustedRequest.command),
+      justification: sanitizeRequestField(input.untrustedRequest.justification),
+      reason: sanitizeRequestField(input.untrustedRequest.reason),
     }),
     input.limits.untrustedToolDataChars,
   ).text;

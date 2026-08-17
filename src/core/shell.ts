@@ -247,7 +247,7 @@ export function parseShellCommand(source: string, dialect: ShellToolName): Shell
   segments.push(segment);
 
   for (const parsedSegment of segments) {
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(parsedSegment[0]!)) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*(?:\+)?=/u.test(parsedSegment[0]!)) {
       return { ok: false, reason: "environment-assignment" };
     }
   }

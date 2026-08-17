@@ -44,13 +44,15 @@ Open `Settings -> Plugins -> Plugin configuration -> Approve for me`. Add only c
 Shell:      git status
 Shell:      git diff
 PowerShell: Get-Location
-PowerShell: Get-Content
+PowerShell: Get-Content -LiteralPath README.md
 ```
 
 Select the `Approve for me` Access preset for the target agent or session.
 
 > [!IMPORTANT]
 > `commandPrefixes` is empty by default. Installing the plugin alone does not automatically approve any command; define positive rules first.
+
+A rule is a token prefix, not an exact-command equality check, so additional arguments can follow. Keep subcommands and paths explicit. Package-manager lifecycle scripts such as `npm test` and `pnpm test`, path-qualified executables, direct scripts, wrappers, known mutating PowerShell aliases, and unknown package-manager actions always return to native human approval even when a prefix matches.
 
 The Web card is an optional editor. The Host approval core also works in a headless Profile and can be configured through YAML only.
 
@@ -177,7 +179,7 @@ approve-for-me:
       - tool: shell
         prefix: git diff
       - tool: pwsh
-        prefix: Get-Content
+        prefix: Get-Content -LiteralPath README.md
     reviewerInstructions: >-
       Only allow read-only repository inspection.
   reviewer:
@@ -250,7 +252,7 @@ The installed defaults are:
 - Fixed high-risk checks: always run before user rules and the reviewer.
 - Reviewer: a fresh, tool-free agent for every request.
 
-Built-in high-risk checks cover conservative shell parsing failures and common file or permission mutations, system or package changes, mutating Git/GitHub operations, dynamic command execution, credential access, and external writes.
+Built-in high-risk checks are finite, conservative classifiers, not proof that an unflagged command is safe. They cover shell parsing failures, common file or permission mutations, system and package changes, mutating Git/GitHub operations, package lifecycle scripts, path-qualified executables, dynamic command execution, credential access, and external writes.
 
 A high-risk result means **do not auto-approve and ask the user**. It is not a direct denial. This prevents a generic policy from making irreversible decisions on the user's behalf.
 
@@ -312,7 +314,7 @@ No. The plugin keeps the sandbox boundary, grants at most one `allowed-once` app
 
 ### Are there built-in rules that work out of the box?
 
-There are non-configurable high-risk checks, but no built-in positive allowlist. The former prevents common high-risk requests from being auto-approved. The latter must reflect the user's project and threat model.
+There are non-configurable high-risk checks, but no built-in positive allowlist. The former screens a conservative, finite set of known high-risk shapes; it is not complete command-semantics analysis. The latter must reflect the user's project and threat model.
 
 ### Does the plugin directly deny high-risk commands?
 
