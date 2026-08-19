@@ -97,8 +97,7 @@ export function apply(ctx: ClientContext): void {
 
   ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
     name: 'settings.plugin.item',
-    id: 'approve-for-me',
-    order: 20,
+    key: APPROVE_FOR_ME_SETTINGS_NS,
     locale: LOCALE_NS,
     inject: injected,
   }, ApproveForMeSection))
