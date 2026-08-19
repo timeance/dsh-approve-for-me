@@ -1,32 +1,20 @@
-# dsh-approve-for-me — Automatic sandbox approval for DeepSeek Harness
+# dsh-approve-for-me - Automatic sandbox approval for DeepSeek Harness
 
 English | [中文](README.zh.md)
 
 [![npm](https://img.shields.io/npm/v/dsh-approve-for-me)](https://www.npmjs.com/package/dsh-approve-for-me)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Rules set the boundary. The current session model reviews candidates. Anything uncertain goes back to you.**
+**Rules define the boundary. An optional LLM reviews matching requests. Everything uncertain returns to native human approval.**
 
-`dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of narrowly allowlisted Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, an optional tool-free LLM reviewer, and native human fallback. Every successful decision grants one `allowed-once` approval, never permanent access. It is validated against DeepSeek Harness `0.1.0-rc.6`; newer Harness releases will be tracked after validation.
+`dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, literal command-prefix rules, and an optional tool-free LLM reviewer. Every successful decision grants one `allowed-once`; it never grants permanent access.
 
-Literal prefix allowlist | fixed high-risk checks | tool-free LLM reviewer | native human fallback
+Version `0.2.1` is adapted to DeepSeek Harness `0.1.0-rc.7`, including rc.7's native keyed third-party settings-card slot.
 
 > [!WARNING]
-> This is an unofficial beta plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, or environment. Keep rules narrow and retain Harness's native human approval as the final decision for important operations.
+> This is an unofficial plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, wrapper, or environment. Keep allowlists narrow and retain Harness's native human approval for important operations.
 
-## Why use it
-
-| Access option | Sandbox escalation requests | Best suited for |
-| --- | --- | --- |
-| Native Harness approval | Ask the user every time | Varied commands that require direct judgment |
-| `Approve for me` | Apply rules, optionally ask a model, and return uncertain cases to the user | Repeated workflows with clear boundaries |
-| `Full access` | Remove the sandbox approval boundary | Environments where full-access risk is already accepted |
-
-Rules determine which requests are eligible for automatic review. The LLM reviewer can narrow that set but cannot bypass rules or fixed high-risk checks. A successful decision grants only one `allowed-once`, never permanent access.
-
-## Quick use
-
-Install DeepSeek Harness and this plugin in the Web Profile, then start the Host:
+## Quick start
 
 ```powershell
 npm install -g @deepseek-ai/dsh
@@ -34,11 +22,30 @@ dsh plugin --profile web add dsh-approve-for-me@latest
 dsh web --host 127.0.0.1 --port 3080
 ```
 
-`@latest` is an npm dist-tag, not a fixed version. Use `@beta` to follow the beta channel explicitly. Use a concrete published version such as `@<version>` only for a reproducible install or rollback. Do not use the bare package name as an upgrade command: the Profile manifest can already contain an exact version, so pnpm may report `Already up to date` without changing it.
+Then:
+
+1. Open `Settings -> Plugins -> Plugin configuration -> Approve for me`.
+2. Add only command prefixes you are willing to review automatically.
+3. Select the `Approve for me` Access preset for the target agent or session.
+
+> [!IMPORTANT]
+> `commandPrefixes` is empty by default. Installing the plugin alone does not automatically approve any command.
+
+`@latest` is an npm dist-tag, not a fixed version. Use `@beta` only when you explicitly want the beta channel. Use `@<version>` for reproducible installation or rollback. Do not use the bare package name as the recommended upgrade command: an existing Profile can remain pinned while pnpm reports `Already up to date`.
+
+## Why use it
+
+| Access option | Sandbox escalation behavior |
+| --- | --- |
+| Native Harness approval | Ask the user for every escalation |
+| `Approve for me` | Evaluate fixed checks and user rules, optionally ask an LLM, then return uncertain requests to the user |
+| `Full access` | Remove the sandbox approval boundary |
+
+Rules establish the largest possible auto-approval set. The reviewer may narrow that set, but cannot bypass rules or fixed high-risk checks.
 
 ## Web configuration
 
-Open `Settings -> Plugins -> Plugin configuration -> Approve for me`. Add only command prefixes you are willing to review automatically, for example:
+Add narrow, literal prefixes such as:
 
 ```text
 Shell:      git status
@@ -47,80 +54,58 @@ PowerShell: Get-Location
 PowerShell: Get-Content -LiteralPath README.md
 ```
 
-Select the `Approve for me` Access preset for the target agent or session.
+A prefix is a parsed token prefix, not exact string equality. Additional arguments can follow, so include the subcommand and path whenever possible. Every segment of a compound command must match independently.
 
-> [!IMPORTANT]
-> `commandPrefixes` is empty by default. Installing the plugin alone does not automatically approve any command; define positive rules first.
+Known package lifecycle actions, path-qualified executables, direct scripts, wrappers, mutating PowerShell aliases, ambiguous parsing, and fixed high-risk patterns return to human approval even when a prefix appears to match.
 
-A rule is a token prefix, not an exact-command equality check, so additional arguments can follow. Keep subcommands and paths explicit. Package-manager lifecycle scripts such as `npm test` and `pnpm test`, path-qualified executables, direct scripts, wrappers, known mutating PowerShell aliases, and unknown package-manager actions always return to native human approval even when a prefix matches.
+The Web card is optional. In rc.7 the client registers the keyed `settings.plugin.item` slot with key `approve-for-me`. The card is available only over a loopback connection and uses the plugin's loopback-only RPC. Persistence, schema validation, revision conflicts, redaction, and hot reload remain owned by Harness's Settings service. The card does not make approval decisions and does not depend on `llm-pi-ai`.
 
-The Web card is an optional editor. The Host approval core also works in a headless Profile and can be configured through YAML only.
-
-On rc.6, the client registers a `settings.plugin.item` card under the real plugin id `approve-for-me`. It appears only over loopback and uses the plugin's loopback-only RPC. The Host delegates persistence, schema validation, conflict handling, redaction, and hot reload to the official Settings service. The card makes no approval decisions and does not depend on or impersonate `llm-pi-ai`.
-
-### Verify
-
-Trigger a read-only command that would normally request sandbox escalation and matches a configured prefix. Confirm that:
-
-1. A matching request approved by the reviewer receives one-time approval.
-2. An unmatched or high-risk request still shows native human approval.
-3. Switching to another Access preset disables the plugin for that session.
-
-The plugin does not participate when no sandbox escalation occurs.
-
-Check the effective package version in the Profile:
+Check the package actually installed in the Profile:
 
 ```powershell
 dsh plugin --profile web list dsh-approve-for-me --depth 0
 ```
 
-The `list` output is the version actually installed in this Profile. Its package manifest and lockfile live under `$DSH_HOME\profiles\web`; on this machine the directory is `C:\Users\zariba\.dsh\profiles\web`.
+Confirm that a matching read-only escalation can receive one-time approval, while an unmatched or high-risk request still opens native human approval. Switching away from the `Approve for me` preset disables the plugin for that session.
 
-## Full installation
+## Install and update
 
-Plugins are installed per Profile. `web`, `headless`, `tui`, and custom Profiles do not inherit each other's installation or settings.
+Plugins and settings are Profile-specific. Install the plugin separately for `web`, `headless`, `tui`, or a custom Profile.
 
 ```powershell
-# Web settings page and Host approval core
+# Web settings card and Host approval core
 dsh plugin --profile web add dsh-approve-for-me@latest
 
-# Host approval core without a Web page
+# Host approval core without the Web settings card
 dsh plugin --profile headless add dsh-approve-for-me@latest
 
-# Update the version installed in this Profile
-dsh plugin --profile web add dsh-approve-for-me@latest
+# Inspect effective wiring
+dsh --profile web --dump-config
+dsh --profile headless --dump-config
 
-# Remove
+# Remove from one Profile
 dsh plugin --profile web remove dsh-approve-for-me
 ```
 
-After installation or update, restart the corresponding Profile and inspect its effective configuration:
-
-```powershell
-dsh --profile web --dump-config
-dsh --profile headless --dump-config
-```
-
-The dump should include the `approve-for-me` permission preset and plugin Host entry.
+The config dump should contain the `approve-for-me` permission preset and Host plugin entry.
 
 ### Upgrade a running Web Profile
 
-Keep the Host stopped during the update. In the terminal running `dsh web`, press `Ctrl+C` first. Then run the following in order:
+1. Stop the terminal running `dsh web` with `Ctrl+C`.
+2. Request the current `latest` dist-tag.
+3. Verify the installed version.
+4. Restart the Host.
+5. Refresh the browser after the Host is running again.
 
 ```powershell
-# Request the current npm latest dist-tag
 dsh plugin --profile web add dsh-approve-for-me@latest
-
-# Verify the effective installed version before restarting the Host
 dsh plugin --profile web list dsh-approve-for-me --depth 0
-
-# Restart the Web Host
 dsh web --host 127.0.0.1 --port 3080
 ```
 
-Refresh the browser only after the Host has restarted. A browser refresh does not reload the Host process or change the Profile lockfile.
+A browser refresh does not reload the Host process or update the Profile lockfile.
 
-If `@latest` still leaves an older version, request the exact published version first:
+If `@latest` does not update the Profile, request the exact published version:
 
 ```powershell
 $version = '<published-version>'
@@ -128,7 +113,7 @@ dsh plugin --profile web add "dsh-approve-for-me@$version"
 dsh plugin --profile web list dsh-approve-for-me --depth 0
 ```
 
-If the Profile still reports the old version, keep the Host stopped, remove the Profile dependency, and add it again:
+If it remains pinned, keep the Host stopped, remove the dependency, and add it again:
 
 ```powershell
 dsh plugin --profile web remove dsh-approve-for-me
@@ -136,37 +121,15 @@ dsh plugin --profile web add dsh-approve-for-me@latest
 dsh plugin --profile web list dsh-approve-for-me --depth 0
 ```
 
-The same rule applies to `headless`: update its Profile separately with `dsh plugin --profile headless add dsh-approve-for-me@latest`.
-
-### Install a local tarball
-
-```powershell
-pnpm install --frozen-lockfile
-npm pack --json
-
-$package = Get-ChildItem '.\dsh-approve-for-me-*.tgz' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-dsh plugin --profile web add $package.FullName
-```
-
-When running from a Harness source checkout, build Harness first and use that repository's `pnpm dsh ...` command.
-
-### Release tag maintenance
-
-`@latest` is a dist-tag, not a version pin. This package publishes beta releases with `publishConfig.tag: beta`. When maintainers publish `<published-version>` with the beta tag, they must also move `latest` if the documentation is meant to follow the newest beta; otherwise `@latest` remains on the previous release. For example:
-
-```powershell
-npm publish --tag beta
-$version = '<published-version>'
-npm dist-tag add "dsh-approve-for-me@$version" latest
-```
+Use `dsh plugin --profile web add dsh-approve-for-me@beta` for beta testing. Update `headless` and other Profiles separately.
 
 ## YAML configuration
 
-The Web settings page and `$DSH_HOME\settings.yaml` edit the same `approve-for-me` settings. Web is optional; a headless environment can use YAML only.
+The Web page and `$DSH_HOME\settings.yaml` edit the same `approve-for-me` settings. Web configuration is optional.
 
-### Recommended: rules + current session model
+### Recommended: rules and the current session model
 
-Omit `reviewer.provider` and `reviewer.model`. Each review inherits the session provider/model attached to that approval request:
+Omit `reviewer.provider` and `reviewer.model`. Each review inherits the provider and model of the session that requested approval.
 
 ```yaml
 approve-for-me:
@@ -184,13 +147,15 @@ approve-for-me:
       Only allow read-only repository inspection.
   reviewer:
     timeoutMs: 30000
+  limits:
+    trustedTranscriptChars: 12000
+    untrustedToolDataChars: 8000
+    reviewerOutputChars: 2000
 ```
 
-If the requesting session has no complete provider/model route, the reviewer cannot allow the request and it falls through to human approval.
+If the request session has no complete provider/model route, the reviewer cannot allow the request and it returns to human approval.
 
-### Pin a reviewer route
-
-Set both fields under `reviewer`:
+To pin a route, set both identifiers:
 
 ```yaml
 reviewer:
@@ -199,153 +164,116 @@ reviewer:
   timeoutMs: 30000
 ```
 
-`provider` and `model` must be set together or omitted together. The plugin stores identifiers only; Harness continues to own model credentials.
+Harness continues to own provider credentials. The plugin stores only provider/model identifiers.
 
-### Use rules only
+To avoid model calls, set `mode: rules-only`. Correlation checks, parsing, fixed high-risk checks, and command rules still apply.
 
-```yaml
-approve-for-me:
-  version: 1
-  mode: rules-only
-  rules:
-    commandPrefixes:
-      - tool: shell
-        prefix: git status
-      - tool: pwsh
-        prefix: Get-Location
-    reviewerInstructions: ''
-```
-
-`rules-only` does not call a model. Correlation checks, conservative parsing, and fixed high-risk checks still apply.
-
-### Field limits
+### Limits
 
 | Field | Default | Constraint |
 | --- | --- | --- |
 | `mode` | `rules-and-llm` | `rules-only` or `rules-and-llm` |
-| `rules.commandPrefixes` | `[]` | At most 200 entries; tool must be `shell` or `pwsh` |
-| One `prefix` | None | Non-empty literal command segment, up to 1,000 characters |
+| `rules.commandPrefixes` | `[]` | At most 200 entries; tool is `shell` or `pwsh` |
+| One `prefix` | None | One non-empty literal command segment, up to 1,000 characters |
 | `rules.reviewerInstructions` | `''` | Up to 8,000 characters |
 | `reviewer.timeoutMs` | `30000` | 1,000 to 120,000 milliseconds |
+| Reviewer content limits | `12000 / 8000 / 2000` | Each value is 256 to 100,000 characters |
 | `reviewer.provider/model` | Current session | Set both or omit both |
 
-Optional content-bound defaults:
+An in-progress review keeps the settings snapshot captured at its start. Hot reload affects later requests.
 
-```yaml
-approve-for-me:
-  limits:
-    trustedTranscriptChars: 12000
-    untrustedToolDataChars: 8000
-    reviewerOutputChars: 2000
-```
+## Safety model
 
-A review already in progress uses the settings snapshot captured at its start. Hot reload affects later requests only.
+Default behavior:
 
-## Default safety baseline
+- Mode is `rules-and-llm`.
+- Reviewer provider/model comes from the requesting session.
+- Positive command rules are empty.
+- Fixed high-risk checks run before user rules and the reviewer.
+- Every review uses a fresh agent with no tools.
+- Failure, timeout, invalid output, ambiguity, or mismatch returns to human approval.
 
-The installed defaults are:
+Decision order:
 
-- Mode: `rules-and-llm`.
-- Reviewer provider/model: inherited from the session that made the current approval request.
-- Reviewer timeout: 30 seconds.
-- Positive command rules: empty, so no command is automatically approved by default.
-- Fixed high-risk checks: always run before user rules and the reviewer.
-- Reviewer: a fresh, tool-free agent for every request.
+1. The active Access preset is `approve-for-me`.
+2. The request is a supported Shell or PowerShell escalation strictly correlated with the active tool call.
+3. The command passes fixed high-risk checks.
+4. Every command segment matches a literal prefix rule for its tool.
+5. `rules-only` returns one `allowed-once`; `rules-and-llm` also requires an explicit schema-valid `allow`.
 
-Built-in high-risk checks are finite, conservative classifiers, not proof that an unflagged command is safe. They cover shell parsing failures, common file or permission mutations, system and package changes, mutating Git/GitHub operations, package lifecycle scripts, path-qualified executables, dynamic command execution, credential access, and external writes.
+Built-in checks cover a finite set of common risks, including parsing failures, file or permission mutation, system and package changes, mutating Git/GitHub actions, package lifecycle scripts, path-qualified executables, dynamic command execution, credential access, and external writes. They are conservative classifiers, not proof that an unflagged command is safe.
 
-A high-risk result means **do not auto-approve and ask the user**. It is not a direct denial. This prevents a generic policy from making irreversible decisions on the user's behalf.
+A high-risk result stops automatic approval and returns the request to Harness. It is not a direct denial.
 
-## How decisions are made
-
-Each request passes through these steps:
-
-1. The active Access preset must be `approve-for-me`.
-2. The request must be a supported Shell or PowerShell sandbox escalation strictly correlated with the active tool call.
-3. The command must pass fixed high-risk checks.
-4. Every command segment must match a literal prefix rule for its tool.
-5. `rules-only` stops here; `rules-and-llm` also requires an explicit, schema-valid `allow` from the reviewer.
-
-| Result | Plugin action |
-| --- | --- |
-| High-risk signal, ambiguous parsing, or correlation failure | Fall through to native human approval |
-| Any command segment is unmatched | Fall through to native human approval |
-| Complete match in `rules-only` | Return one `allowed-once` |
-| Reviewer explicitly allows | Return one `allowed-once` |
-| Reviewer denies, escalates, times out, fails, or returns invalid output | Fall through to native human approval |
-
-Prefixes are parsed and validated literal command prefixes, not regular expressions. Every segment of a compound command must satisfy a rule independently.
-
-## Permissions and data
+### Permissions and data
 
 | Area | Behavior |
 | --- | --- |
 | Approval context | Reads the current escalation, correlated tool call, and a length-bounded transcript |
-| Reviewer input | Separates trusted guidance from untrusted tool data, bounds content, and redacts common credential formats |
-| Reviewer capability | Uses a fresh agent with no tools |
-| Model route | Inherits the current session or uses explicit provider/model identifiers; Harness owns credentials |
-| Web writes | A loopback-only RPC delegates persistence to the official Settings service |
-| Network | Model requests use the provider route configured in Harness; plugin Web RPC is unavailable to non-loopback clients |
-| Approval scope | Returns one `allowed-once` for the current request only |
+| Reviewer input | Separates trusted guidance from untrusted tool data, limits content, and redacts common credential formats |
+| Reviewer capability | Fresh agent with no tools |
+| Network | Uses the provider route already configured in Harness |
+| Web writes | Loopback-only RPC delegates persistence to the Settings service |
+| Approval scope | One `allowed-once` for the current request |
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| `Approve for me` is missing from Access | Confirm the plugin is installed in the active Profile, restart it, and inspect `--dump-config` |
-| The Web settings card is missing | Use the `web` Profile through `127.0.0.1` or another loopback address |
-| A matching command still asks | Check every compound-command segment, high-risk signals, tool type, and reviewer outcome |
-| The reviewer did not run | Confirm mode is not `rules-only`, rules matched, and the request session has a complete model route |
-| provider/model validation fails | Set both fields; clear both to inherit the current session |
+| `Approve for me` is missing from Access | Install in the active Profile, restart it, and inspect `--dump-config` |
+| The settings card is missing | Use the `web` Profile through `127.0.0.1` or another loopback address |
+| A matching command still asks | Check every compound segment, high-risk signals, tool type, and reviewer result |
+| The reviewer did not run | Confirm `rules-and-llm`, a complete rule match, and a valid session model route |
+| Provider/model validation fails | Set both identifiers or clear both |
 | Saving reports a revision conflict | Reload the card, edit the latest value, and save again |
-| Installation reports peer warnings | Check the current Harness version against the plugin compatibility baseline, currently `0.1.0-rc.6`. Then run `pnpm peers check` as prompted; do not ignore real version conflicts |
-| `@latest` still shows an older version | Stop the Host, run the exact-version fallback, inspect `list`, then remove and re-add if the Profile remains pinned |
-| Web works but another Profile does not | Install and configure the plugin separately in every Profile |
+| Installation reports peer warnings | Confirm Harness `0.1.0-rc.7` compatibility and run `pnpm peers check` |
+| Another Profile does not work | Install and configure the plugin in that Profile |
 
 ## FAQ
 
-### How does DeepSeek Harness automatically approve sandbox escalations?
+### How do I automatically approve DeepSeek Harness sandbox escalations?
 
-Install the plugin, define command prefixes, and select the `Approve for me` Access preset. The plugin grants one-time approval only to strictly correlated requests that pass fixed checks, positive rules, and the configured review mode. Everything else remains a human decision.
+Install the plugin, add narrow command prefixes, and select the `Approve for me` Access preset. Only strictly correlated requests that pass fixed checks and configured review are approved once.
 
 ### Does it replace `Full access`?
 
-No. The plugin keeps the sandbox boundary, grants at most one `allowed-once` approval for the current request, and returns high-risk, unmatched, ambiguous, or failed reviews to Harness's native human approval.
+No. It keeps the sandbox boundary and returns uncertain requests to Harness's native approval.
 
-### Are there built-in rules that work out of the box?
+### Are there built-in rules?
 
-There are non-configurable high-risk checks, but no built-in positive allowlist. The former screens a conservative, finite set of known high-risk shapes; it is not complete command-semantics analysis. The latter must reflect the user's project and threat model.
+There are fixed high-risk checks, but no built-in positive allowlist. Your allowlist must reflect the project and threat model.
 
-### Does the plugin directly deny high-risk commands?
+### Does it directly reject high-risk commands?
 
-No. The current implementation stops automatic approval and falls through to Harness's native human approval. It does not make the final denial on the user's behalf.
+No. Version `0.2.1` stops automatic approval and hands the decision back to the user.
 
-### Can the LLM reviewer expand the rule boundary?
+### Can the reviewer expand the allowlist?
 
-No. Rules establish the maximum candidate set first. The reviewer can allow a candidate or return it to the user, but cannot admit an unmatched request.
+No. Rules define the maximum candidate set. The reviewer can only allow a matching candidate or return it to the user.
 
-### What does "inherit the current session model" mean?
+### Does it work headlessly?
 
-When `reviewer.provider` and `reviewer.model` are omitted, the plugin reads the provider/model of the session associated with the current approval. Different sessions can therefore use different reviewer routes.
-
-### Does it work in both Web and headless Profiles?
-
-Yes, after separate installation. The Web card is an optional configuration surface; the Host approval core does not require a browser.
-
-### Do I need `llm-pi-ai`?
-
-No. The plugin owns its namespace, Web card, and RPC and uses Harness's subagent/provider services for model calls.
+Yes. Install it in the `headless` Profile and configure YAML. The approval core does not require the Web card.
 
 ## Compatibility
 
-| Component | Status |
+| Component | Baseline |
 | --- | --- |
-| DeepSeek Harness | Development and verification baseline: `0.1.0-rc.6`; newer releases are tracked after validation |
+| DeepSeek Harness | `0.1.0-rc.7` |
 | Node.js | `^22.19.0 || >=24.0.0` |
 | Cordis | `^4.0.1` |
-| npm channel | Use @latest by default; use @beta to follow beta releases |
+| npm channel | `@latest` for stable releases; `@beta` for beta testing |
 
-The permission patch preserves Harness's `Read Only`, `Workspace Write`, and `Full access` presets and appends `Approve for me`. The permission preset icon is rendered by the Harness UI; this plugin does not customize it.
+The rc.7 adaptation uses the keyed third-party settings-card registration required by Harness. The permission patch preserves `Read Only`, `Workspace Write`, and `Full access`, then adds `Approve for me`. Permission preset icons remain controlled by the Harness UI.
+
+On August 19, 2026, the `0.2.1` source was verified against the official `dsh-v0.1.0-rc.7` tag at commit `99f6f02`:
+
+- `pnpm peers check`, typecheck, all 238 tests, and the production build passed.
+- npm pack produced 26 files, including both READMEs.
+- Isolated Web and headless Profiles installed `0.2.1` and composed the expected preset and Host wiring.
+- The isolated Web Host returned HTTP 200; its plugin client bundle also returned 200 and contained the rc.7 settings slot and plugin key.
+
+A previous rc.6 smoke test on August 15, 2026 verified headless one-time approval and Web bundle loading. It is historical evidence, not the current compatibility baseline.
 
 ## Development and verification
 
@@ -356,28 +284,36 @@ pnpm typecheck
 pnpm test
 pnpm test:coverage
 pnpm build
-pnpm check
 npm pack --dry-run --json
-npm pack --json
 ```
 
-Use a fresh, isolated `DSH_HOME` for runtime verification. Check the Web card, persistence, YAML hot reload, session-model inheritance, and non-Web Host activation separately.
+To run source-level client tests against a specific Harness checkout:
 
-### Runtime evidence
+```powershell
+$env:DSH_HARNESS_TSCONFIG = 'H:\path\to\deepseek-harness\tsconfig.base.json'
+pnpm test
+```
 
-The following smoke test ran on 2026-08-15 against DeepSeek Harness `0.1.0-rc.6`, using the `0.1.0-beta.2` tarball built from source commit `e8c3bdb`:
+The test adapter is temporary and ignored by Git. Use a fresh `DSH_HOME` for runtime verification.
 
-- Headless: an isolated smoke patch selected the `approve-for-me` preset, `rules-only`, and one literal `pwsh` prefix. A loopback-only mock LLM returned a scripted `pwsh Get-Location` escalation. The session log recorded `approval/asked`, `approval/decided` with `allowed-once`, the real command output, and a successful `dsh` exit (`0`).
-- Web: a separate isolated Web Profile installed the same tarball. `dsh --profile web --host 127.0.0.1 --port 0` started successfully; the root page returned HTTP `200` and contained the installed plugin bundle marker.
+### Local tarball
 
-This is a loading and smoke test, not a security audit. It does not cover a real provider credential, browser interaction, the LLM reviewer path, or Web settings/YAML persistence.
+```powershell
+npm pack --json
+$package = Get-ChildItem '.\dsh-approve-for-me-*.tgz' |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+dsh plugin --profile web add $package.FullName
+```
 
-## Links
+### Publishing tags
 
-Thanks to the [LINUX DO](https://linux.do/) community for their help and support.
+Stable releases use `publishConfig.tag: latest`, so `npm publish` updates `latest`. Publish prereleases with `npm publish --tag beta`; this updates `beta` without moving `latest`.
 
 ## Security and license
 
 Report vulnerabilities privately through GitHub Security Advisories. Do not submit API keys, credentials, complete prompts, private paths, or unredacted tool arguments. See [SECURITY.md](SECURITY.md).
 
-This project is licensed under the [MIT License](LICENSE).
+Thanks to the [LINUX DO](https://linux.do/) community for its help and feedback.
+
+Licensed under the [MIT License](LICENSE).

@@ -93,7 +93,7 @@ async function bench(isLoopback = true) {
   slots.register({
     name: 'root',
     children: {
-      'settings.plugin.item': { kind: 'list', scope: 'root' },
+      'settings.plugin.item': { kind: 'keyed', scope: 'root' },
     },
   } as never, () => null)
 
@@ -104,7 +104,7 @@ async function bench(isLoopback = true) {
   return { ctx, locale, slots, describe: describeSettings, models, rpcCall, dispatch }
 }
 describe('approve-for-me client apply', () => {
-  it('declares services and registers an ordered localized settings section', async () => {
+  it('declares services and registers a keyed localized settings section', async () => {
     expect(inject).toEqual(['slots', 'locale', 'connection', 'remote'])
     const b = await bench()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
@@ -113,8 +113,7 @@ describe('approve-for-me client apply', () => {
     const entry = b.slots.entries('settings.plugin.item')[0]!
     expect(entry.component).toBe(ApproveForMeSection)
     expect(entry.options).toMatchObject({
-      id: 'approve-for-me',
-      order: 20,
+      key: 'approve-for-me',
     })
     expect(entry.locale).toBe('settings.approve-for-me')
 
