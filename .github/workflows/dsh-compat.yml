@@ -1,0 +1,61 @@
+name: DSH compatibility
+
+on:
+  push:
+    branches:
+      - "compat/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    env:
+      DSH_HARNESS_ROOT: deepseek-harness
+      DSH_HARNESS_TSCONFIG: deepseek-harness/tsconfig.base.json
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [22.19.0, 24.x]
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+
+      - name: Check out DSH rc1 source
+        uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: dsh-v0.1.1-rc.1
+          path: deepseek-harness
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install and build DSH source libraries
+        working-directory: deepseek-harness
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:lib
+
+      - name: Install plugin dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck, test, and build
+        run: pnpm check
+
+      - name: Verify package contents
+        run: npm pack --dry-run --ignore-scripts

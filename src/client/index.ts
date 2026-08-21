@@ -52,7 +52,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 const LOCALE_NS = 'settings.approve-for-me'
 
 /** Required browser services. */
-export const inject = ['slots', 'locale', 'connection', 'remote']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsSchema']
 
 /** Register the settings section and keep its Host data current. */
 export function apply(ctx: ClientContext): void {
@@ -66,6 +66,7 @@ export function apply(ctx: ClientContext): void {
   const controller = new ApproveForMeSettingsController(
     new ApproveForMeSettingsRpc(connection.rpc),
     connection.api.llm,
+    ctx.settingsSchema,
   )
   const injected = (): ApproveForMeSectionInjected => ({
     hooks: { approveForMe: controller.store },

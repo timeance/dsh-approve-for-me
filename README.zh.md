@@ -9,7 +9,7 @@
 
 `dsh-approve-for-me` 是 DeepSeek Harness 的自动沙箱审批（automatic sandbox approval）插件，用于 Shell 和 PowerShell 的沙箱扩权（sandbox escalation）。它依次执行固定高风险检查、字面命令前缀规则和可选的无工具大模型复核器（LLM reviewer）。成功时只授予当前请求一次 `allowed-once`，不会永久授权。
 
-`0.2.1` 已适配 DeepSeek Harness `0.1.0-rc.7`，包括 rc.7 新增的第三方插件 keyed 设置卡片机制。
+`0.2.2` 已适配 DeepSeek Harness `0.1.1-rc.1`，包括 rc1 的第三方插件 keyed 设置卡片机制和共享客户端 settings schema service。
 
 > [!WARNING]
 > 本项目不是 DeepSeek 官方插件，未经独立安全审计且不提供担保。内置检查无法覆盖所有命令、参数、wrapper 和环境差异。请使用尽可能窄的正向允许列表（allowlist），并为重要操作保留 Harness 原生人工审批。
@@ -60,7 +60,7 @@ PowerShell: Get-Content -LiteralPath README.md
 
 即使前缀看似匹配，已知的包管理器生命周期动作、带路径的可执行文件、直接脚本、wrapper、会写入的 PowerShell alias、解析歧义和固定高风险形态仍会转人工审批。
 
-Web 卡片是可选配置入口。rc.7 客户端以 key `approve-for-me` 注册 keyed `settings.plugin.item` slot。卡片只在 loopback 连接中显示，通过插件自己的 loopback-only RPC 读写配置。持久化、schema 校验、revision conflict、脱敏和热加载由 Harness Settings service 负责。卡片不做审批决策，也不依赖 `llm-pi-ai`。
+Web 卡片是可选配置入口。rc1 客户端以 key `approve-for-me` 注册 keyed `settings.plugin.item` slot，并使用 Harness 共享的 settings schema service。卡片只在 loopback 连接中显示，通过插件自己的 loopback-only RPC 读写配置。持久化、schema 校验、revision conflict、脱敏和热加载由 Harness Settings service 负责。卡片不做审批决策，也不依赖 `llm-pi-ai`。
 
 检查 Profile 实际安装的版本：
 
@@ -228,7 +228,7 @@ reviewer:
 | reviewer 没有运行 | 确认使用 `rules-and-llm`、规则完整匹配且 session 模型路由有效 |
 | provider/model 校验失败 | 同时填写两项，或同时清空 |
 | 保存提示 revision conflict | 重新加载卡片，基于最新值编辑并保存 |
-| 安装出现 peer warning | 确认 Harness `0.1.0-rc.7` 兼容性，并运行 `pnpm peers check` |
+| 安装出现 peer warning | 确认 Harness `0.1.1-rc.1` 兼容性，并运行 `pnpm check` |
 | 另一个 Profile 不生效 | 在该 Profile 中单独安装和配置 |
 
 ## 常见问题
@@ -247,7 +247,7 @@ reviewer:
 
 ### 高风险命令会被直接拒绝吗？
 
-不会。`0.2.1` 会停止自动审批，把决定交回用户。
+不会。`0.2.2` 会停止自动审批，把决定交回用户。
 
 ### reviewer 能扩大 allowlist 吗？
 
@@ -261,19 +261,20 @@ reviewer:
 
 | 项目 | 基线 |
 | --- | --- |
-| DeepSeek Harness | `0.1.0-rc.7` |
+| DeepSeek Harness | `0.1.1-rc.1` |
 | Node.js | `^22.19.0 || >=24.0.0` |
 | Cordis | `^4.0.1` |
 | npm 通道 | 稳定版使用 `@latest`；beta 测试使用 `@beta` |
 
-rc.7 适配使用 Harness 要求的 keyed 第三方设置卡片注册方式。权限 patch 保留 `Read Only`、`Workspace Write` 和 `Full access`，再添加 `Approve for me`。permission preset 图标仍由 Harness UI 控制。
+rc1 适配使用 Harness 要求的 keyed 第三方设置卡片注册方式和 `settingsSchema` service；已移除 rc7 的 schema-form 依赖。权限 patch 保留 `Read Only`、`Workspace Write` 和 `Full access`，再添加 `Approve for me`。permission preset 图标仍由 Harness UI 控制。
 
-2026 年 8 月 19 日，`0.2.1` 源码已针对官方 `dsh-v0.1.0-rc.7` tag 的提交 `99f6f02` 完成验证：
+2026 年 8 月 21 日，`0.2.2` 源码已针对官方 `dsh-v0.1.1-rc.1` tag 的提交 `528c682e` 完成验证：
 
-- `pnpm peers check`、typecheck、全部 238 项测试和生产构建通过。
+- typecheck、完整回归测试、coverage 和生产构建通过。
 - npm pack 生成 26 个文件，包含两份 README。
-- 隔离 Web 和 headless Profile 均安装 `0.2.1`，并组合出预期的 preset 与 Host 接线。
-- 隔离 Web Host 和插件 client bundle 均返回 HTTP 200；bundle 包含 rc.7 设置 slot 与插件 key。
+- 兼容性 workflow 覆盖 Ubuntu、Windows，以及 Node 22.19 和 24，并包含 Windows PowerShell 路径。
+- 回归测试覆盖 rc1 `permission/preset.origin`、共享 `settingsSchema` 注入、一次性 PowerShell 关联、持久 PowerShell 回退、设置冲突、重连和非 loopback 行为。
+- 在隔离的 DSH home 中，rc1 Web Profile 已加载插件，并成功返回 Web 页面和插件 client bundle；rc1 headless Profile 读取 YAML 的 `permission.defaultPreset: approve-for-me`，通过本地 mock LLM 完成一次受控 Bash 提权。会话日志记录了 origin 为 `default` 的 `permission/preset`、`approval/decided: allowed-once` 和成功的工具结果。
 
 2026 年 8 月 15 日曾使用 rc.6 完成 headless 单次批准和 Web bundle 加载 smoke test。这是历史记录，不是当前兼容性基线。
 
@@ -281,17 +282,15 @@ rc.7 适配使用 Harness 要求的 keyed 第三方设置卡片注册方式。�
 
 ```powershell
 pnpm install --frozen-lockfile
-pnpm peers check
-pnpm typecheck
-pnpm test
+pnpm check
 pnpm test:coverage
-pnpm build
-npm pack --dry-run --json
+npm pack --dry-run --json --ignore-scripts
 ```
 
 需要对指定 Harness 源码 checkout 运行客户端测试时：
 
 ```powershell
+$env:DSH_HARNESS_ROOT = 'H:\path\to\deepseek-harness'
 $env:DSH_HARNESS_TSCONFIG = 'H:\path\to\deepseek-harness\tsconfig.base.json'
 pnpm test
 ```
