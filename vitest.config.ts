@@ -6,6 +6,10 @@ import { defineConfig } from 'vitest/config'
 
 const decoratorSyntax = /^\s*@[A-Za-z_$][\w$]*/m
 const generatedHarnessProject = '.vitest.harness.generated.json'
+const harnessRoot = resolve(
+  import.meta.dirname,
+  process.env.DSH_HARNESS_ROOT ?? '../deepseek-harness',
+)
 
 function harnessProjects(): string[] {
   const configured = process.env.DSH_HARNESS_TSCONFIG
@@ -54,10 +58,24 @@ function standardDecoratorPlugin() {
 }
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // DSH rc1's published client bundle is a browser ModuleLoader
+      // registration, so source-level tests must keep every runtime import on
+      // the checked-out Harness source graph (including nested importers).
+      '@deepseek-ai/dsh-client-runtime/client': resolve(
+        harnessRoot,
+        'packages/client/runtime/src/client/index.ts',
+      ),
+    },
+  },
   plugins: [
     tsconfigPaths({
       root: import.meta.dirname,
       projects: harnessProjects(),
+      // The rc1 source workspace lives beside this plugin, so its imports
+      // must use the same DSH source aliases as imports from this package.
+      loose: true,
     }),
     standardDecoratorPlugin(),
   ],

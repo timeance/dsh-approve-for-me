@@ -39,8 +39,9 @@ function settings(
 function agentWithVisibleInputs(options: {
   agentOptions?: Record<string, unknown>
   requestConfig?: { provider?: string; model?: string } | undefined
+  presetOrigin?: 'default' | 'selection' | 'inferred'
 } = {}): Agent {
-  const events = [
+  const events: unknown[] = [
     {
       type: 'user/message',
       data: {
@@ -59,6 +60,12 @@ function agentWithVisibleInputs(options: {
   const requestConfig = Object.hasOwn(options, 'requestConfig')
     ? options.requestConfig
     : { provider: 'session-provider', model: 'session-model' }
+  if (options.presetOrigin !== undefined) {
+    events.push({
+      type: 'permission/preset',
+      data: { preset: 'approve-for-me', origin: options.presetOrigin },
+    })
+  }
   return {
     options: options.agentOptions ?? {},
     session: {
@@ -188,6 +195,52 @@ describe('approve-for-me Host integration', () => {
     await expect(decide(host, execution(agent, 'call-1', 'git status --short'), undefined, native))
       .resolves.toBe('allowed-once')
     expect(native).not.toHaveBeenCalled()
+    expect(host.start).not.toHaveBeenCalled()
+  })
+
+  it.each(['default', 'selection', 'inferred'] as const)(
+    'keeps rc1 permission/preset origin %s transparent to preset lookup',
+    async origin => {
+      const host = fakeHost(settings('rules-only', [{ tool: 'shell', prefix: 'git status' }]))
+      const agent = agentWithVisibleInputs({ presetOrigin: origin })
+
+      await expect(decide(host, execution(agent, `call-origin-${origin}`, 'git status')))
+        .resolves.toBe('allowed-once')
+      expect(host.ctx.permissionPresets.current).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'permission/preset',
+            data: { preset: 'approve-for-me', origin },
+          }),
+        ]),
+      )
+    },
+  )
+
+  it('does not auto-approve persistent pwsh calls without one-shot escalation fields', async () => {
+    const host = fakeHost(settings('rules-only', [{ tool: 'pwsh', prefix: 'Get-Content' }]))
+    const agent = agentWithVisibleInputs()
+    const signal = new AbortController().signal
+    const persistent = Object.freeze({
+      agent,
+      callId: 'persistent-pwsh-call',
+      name: 'pwsh',
+      arguments: Object.freeze({
+        command: 'Get-Content README.md',
+        description: 'Read the README file',
+      }),
+      signal,
+    }) as unknown as ToolDispatchExecution
+    const request: ApprovalRequest = {
+      agent,
+      callId: persistent.callId,
+      toolName: persistent.name,
+      signal,
+    }
+    const native = vi.fn<() => Promise<ApprovalOutcome>>().mockResolvedValue('rejected')
+
+    await expect(decide(host, persistent, request, native)).resolves.toBe('rejected')
+    expect(native).toHaveBeenCalledOnce()
     expect(host.start).not.toHaveBeenCalled()
   })
 

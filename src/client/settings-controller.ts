@@ -1,13 +1,10 @@
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
+import Schema from '@deepseek-ai/schemastery'
 
 import {
   createSnapshotStore,
   type SnapshotStore,
 } from '@deepseek-ai/dsh-client-runtime/client'
-import {
-  rehydrateSchema,
-  validateDraft,
-} from '@deepseek-ai/dsh-client-schema-form'
 import { parseApprovalSettings } from '../core/settings.ts'
 import type {
   ApproveForMeSettingsDescriptor,
@@ -22,6 +19,31 @@ import type {
 } from './settings-types.ts'
 
 export const APPROVE_FOR_ME_SETTINGS_NS = 'approve-for-me'
+
+/** The schema surface needed by this controller from DSH rc1. */
+export type SettingsSchemaValidator = {
+  rehydrate(serialized: unknown): Schema
+  validate(schema: Schema, draft: unknown): string | undefined
+}
+
+/**
+ * Keep the standalone settingsValueOf helper usable for consumers and unit
+ * tests that do not have a Cordis client context. The browser plugin passes
+ * DSH's shared ctx.settingsSchema service to the controller at runtime.
+ */
+const LOCAL_SCHEMA_VALIDATOR: SettingsSchemaValidator = {
+  rehydrate(serialized) {
+    return new Schema(serialized as Schema)
+  },
+  validate(schema, draft) {
+    try {
+      ;(schema as unknown as (value: unknown) => unknown)(draft)
+      return undefined
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error)
+    }
+  },
+}
 
 const INITIAL: ApproveForMeSettingsState = {
   status: 'idle',
@@ -44,13 +66,19 @@ function responseError(error: { code: string; message: string }): string {
 }
 
 /** Validate both the serialized schema envelope and locked nested value. */
-export function settingsValueOf(view: ApproveForMeSettingsNamespaceView): ApproveForMeSettings {
+export function settingsValueOf(
+  view: ApproveForMeSettingsNamespaceView,
+  schemaValidator: SettingsSchemaValidator = LOCAL_SCHEMA_VALIDATOR,
+): ApproveForMeSettings {
   if (view.ns !== APPROVE_FOR_ME_SETTINGS_NS) {
     throw new Error('unexpected settings namespace: ' + view.ns)
   }
   let schemaFailure: string | undefined
   try {
-    schemaFailure = validateDraft(rehydrateSchema(view.schema), view.value)
+    schemaFailure = schemaValidator.validate(
+      schemaValidator.rehydrate(view.schema),
+      view.value,
+    )
   } catch (error) {
     throw new Error('invalid settings schema: ' + messageOf(error))
   }
@@ -144,6 +172,7 @@ export class ApproveForMeSettingsController {
       ): Promise<ApproveForMeSettingsRpcResult<ApproveForMeSettingsDescriptor>>
     },
     private readonly llm: Pick<IApiClient, 'llm'>['llm'],
+    private readonly schemaValidator: SettingsSchemaValidator = LOCAL_SCHEMA_VALIDATOR,
   ) {}
 
   /** Load settings and the independent Host model catalog together. */
@@ -331,7 +360,7 @@ export class ApproveForMeSettingsController {
   }
 
   private acceptSettings(view: ApproveForMeSettingsNamespaceView, writable: boolean): void {
-    const value = settingsValueOf(view)
+    const value = settingsValueOf(view, this.schemaValidator)
     this.store.update((state) => {
       state.status = 'ready'
       state.error = null

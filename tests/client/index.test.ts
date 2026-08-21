@@ -88,6 +88,19 @@ async function bench(isLoopback = true) {
     rpc: { call: rpcCall },
     api: { llm: { models } },
   } as never)
+  ctx.provide('settingsSchema', {
+    rehydrate(serialized: unknown) {
+      return new Schema(serialized as Schema)
+    },
+    validate(schema: Schema, draft: unknown) {
+      try {
+        ;(schema as unknown as (value: unknown) => unknown)(draft)
+        return undefined
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error)
+      }
+    },
+  } as never)
 
   const slots = ctx.get('slots') as SlotRegistry
   slots.register({
@@ -105,7 +118,7 @@ async function bench(isLoopback = true) {
 }
 describe('approve-for-me client apply', () => {
   it('declares services and registers a keyed localized settings section', async () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'settingsSchema'])
     const b = await bench()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
