@@ -58,6 +58,9 @@ function standardDecoratorPlugin() {
 }
 
 export default defineConfig({
+  test: {
+    include: ['tests/**/*.{test,spec}.{ts,tsx}'],
+  },
   resolve: {
     alias: {
       // DSH rc1's published client bundle is a browser ModuleLoader
