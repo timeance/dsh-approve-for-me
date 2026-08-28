@@ -90,13 +90,13 @@
 .error {
   background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, var(--dsw-alias-bg-layer-1));
   border-color: var(--dsw-alias-state-error-secondary);
-  color: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-label-primary);
 }
 
 .success {
   background: var(--dsw-alias-state-success-tertiary);
   border-color: var(--dsw-alias-state-success-secondary);
-  color: var(--dsw-alias-state-success-primary);
+  color: var(--dsw-alias-label-primary);
 }
 
 .errorTitle {
@@ -207,8 +207,8 @@
 }
 
 .button {
-  background: var(--dsw-alias-state-business-primary);
-  color: #fff;
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
 }
 
 .secondaryButton {

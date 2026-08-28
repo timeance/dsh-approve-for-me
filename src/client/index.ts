@@ -1,7 +1,7 @@
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import { ApproveForMeSection } from './ApproveForMeSection.tsx'
@@ -15,6 +15,13 @@ import {
 } from './settings-controller.ts'
 import { en, zh, type SettingsLocaleKey } from './settings-locale.ts'
 import { ApproveForMeSettingsRpc } from './settings-rpc.ts'
+import {
+  legacyModelCatalogSource,
+  sessionModelCatalogSource,
+  type LegacyModelCatalogApi,
+  type ModelCatalogSource,
+  type SessionModelCatalogRemote,
+} from './model-catalog.ts'
 
 export type {
   ApproveForMeSectionInjected,
@@ -61,11 +68,42 @@ export function apply(ctx: ClientContext): void {
     'approve-for-me: settings dictionaries',
   )
 
-  const connection = ctx.get('connection') as unknown as ConnectionHandle
+  const connection = ctx.get('connection') as unknown as CompatibleConnection
   if (!connection.isLoopback) return
+
+  if (connection.api !== undefined) {
+    mountSettings(ctx, connection, legacyModelCatalogSource(connection.api.llm))
+    return
+  }
+
+  ctx.inject(['remote.session'], (scope) => {
+    const remote = (scope.remote as unknown as { session: SessionModelCatalogRemote }).session
+    mountSettings(scope, connection, sessionModelCatalogSource(remote))
+  })
+}
+
+type CompatibleConnection = Pick<ConnectionHandle, 'isLoopback' | 'rpc'> & {
+  readonly api?: { readonly llm: LegacyModelCatalogApi }
+}
+
+interface CompatibleRemoteEvents {
+  $on(
+    event: 'settings/document-updated',
+    listener: (namespace: string, revision?: number) => void,
+  ): () => void
+  $on(event: 'llm/adapters-updated', listener: () => void): () => void
+}
+
+function mountSettings(
+  ctx: ClientContext,
+  connection: CompatibleConnection,
+  models: ModelCatalogSource,
+): void {
+  const slots = (ctx as unknown as { slots: any }).slots
+  const remoteEvents = ctx.remote as unknown as CompatibleRemoteEvents
   const controller = new ApproveForMeSettingsController(
     new ApproveForMeSettingsRpc(connection.rpc),
-    connection.api.llm,
+    models,
     ctx.settingsSchema,
   )
   const injected = (): ApproveForMeSectionInjected => ({
@@ -77,13 +115,13 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(() => {
     const disposers = [
-      ctx.remote.$on('settings/document-updated', (namespace) => {
+      remoteEvents.$on('settings/document-updated', (namespace) => {
         if (namespace === APPROVE_FOR_ME_SETTINGS_NS) {
           refreshSettingsIfLoaded(controller)
         }
         refreshModelsIfLoaded(controller)
       }),
-      ctx.remote.$on('llm/adapters-updated', () => {
+      remoteEvents.$on('llm/adapters-updated', () => {
         refreshModelsIfLoaded(controller)
       }),
       ctx.on('connection/reset', () => {
@@ -96,7 +134,7 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'approve-for-me: settings invalidations')
 
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+  slots.inject('settings.plugin.item', () => slots.register({
     name: 'settings.plugin.item',
     key: APPROVE_FOR_ME_SETTINGS_NS,
     locale: LOCALE_NS,

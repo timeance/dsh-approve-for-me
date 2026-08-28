@@ -3,3 +3,4 @@ lib/
 coverage/
 *.tgz
 .vitest.harness.generated.json
+.tsconfig.harness.generated.json

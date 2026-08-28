@@ -1,10 +1,4 @@
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
 import Schema from '@deepseek-ai/schemastery'
-
-import {
-  createSnapshotStore,
-  type SnapshotStore,
-} from '@deepseek-ai/dsh-client-runtime/client'
 import { parseApprovalSettings } from '../core/settings.ts'
 import type {
   ApproveForMeSettingsDescriptor,
@@ -17,10 +11,15 @@ import type {
   ApproveForMeSettingsState,
   ReviewerProviderOption,
 } from './settings-types.ts'
+import type { ModelCatalogSource } from './model-catalog.ts'
+import {
+  createSnapshotStore,
+  type MutableSnapshotStore,
+} from './snapshot-store.ts'
 
 export const APPROVE_FOR_ME_SETTINGS_NS = 'approve-for-me'
 
-/** The schema surface needed by this controller from DSH rc1. */
+/** The schema surface needed by this controller from DSH rc.2/alpha.1. */
 export type SettingsSchemaValidator = {
   rehydrate(serialized: unknown): Schema
   validate(schema: Schema, draft: unknown): string | undefined
@@ -155,7 +154,7 @@ export function settingsMutationOps(
 
 /** Host-backed settings and model-catalog controller. */
 export class ApproveForMeSettingsController {
-  readonly store: SnapshotStore<ApproveForMeSettingsState> =
+  readonly store: MutableSnapshotStore<ApproveForMeSettingsState> =
     createSnapshotStore(INITIAL)
 
   private settingsTail: Promise<void> = Promise.resolve()
@@ -171,7 +170,7 @@ export class ApproveForMeSettingsController {
         expectedRevision?: number,
       ): Promise<ApproveForMeSettingsRpcResult<ApproveForMeSettingsDescriptor>>
     },
-    private readonly llm: Pick<IApiClient, 'llm'>['llm'],
+    private readonly models: ModelCatalogSource,
     private readonly schemaValidator: SettingsSchemaValidator = LOCAL_SCHEMA_VALIDATOR,
   ) {}
 
@@ -229,12 +228,12 @@ export class ApproveForMeSettingsController {
     })
 
     try {
-      const response = await this.llm.models({})
+      const result = await this.models.load()
       if (this.disposed || generation !== this.modelsGeneration) return
-      if (!response.result.ok) {
-        throw new Error(responseError(response.result.error))
+      if (!result.ok) {
+        throw new Error(responseError(result.error))
       }
-      const { groups, failures } = response.result.value
+      const { groups, failures } = result.value
       const modelGroups: ReviewerProviderOption[] = groups.map(group => ({
         id: group.id,
         name: group.name,

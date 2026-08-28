@@ -115,7 +115,7 @@ export class ApproveForMeSettingsRemote extends Service {
 
   constructor(ctx: Context) {
     super(ctx, 'approveForMeSettings')
-    ctx.connection.rpc.handle(RPC_CHANNEL, this.dispatch, { authority: 'loopback' })
+    ;(ctx.connection.rpc as unknown as { handle(channel: string, handler: ConnectionRpcHandler, options?: { authority: string }): void }).handle(RPC_CHANNEL, this.dispatch, { authority: 'loopback' })
   }
 
   describe(): ApproveForMeSettingsDescriptor {
@@ -131,7 +131,9 @@ export class ApproveForMeSettingsRemote extends Service {
     ops: readonly ApproveForMeSettingsPathOp[],
     expectedRevision?: number,
   ): Promise<ApproveForMeSettingsDescriptor> {
-    await this.ctx.settings.mutate(
+    await (this.ctx.settings as unknown as {
+      mutate(namespace: string, ops: readonly SettingsPathOp[], expectedRevision?: number): Promise<unknown>
+    }).mutate(
       SETTINGS_NAMESPACE,
       ops as readonly SettingsPathOp[],
       expectedRevision,
