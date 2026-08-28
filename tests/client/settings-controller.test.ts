@@ -14,6 +14,7 @@ import {
   settingsValueOf,
 } from '../../src/client/settings-controller.ts'
 import type { ApproveForMeSettings } from '../../src/client/settings-types.ts'
+import { legacyModelCatalogSource } from '../../src/client/model-catalog.ts'
 
 const SETTINGS_SCHEMA = Schema.object({
   version: Schema.const(1).required(),
@@ -126,7 +127,7 @@ function api(options: {
 function controllerFor(wire: ReturnType<typeof api>) {
   return new ApproveForMeSettingsController(
     wire.settings as never,
-    wire.llm as never,
+    legacyModelCatalogSource(wire.llm as never),
   )
 }
 

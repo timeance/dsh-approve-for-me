@@ -61,17 +61,6 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
   },
-  resolve: {
-    alias: {
-      // DSH rc1's published client bundle is a browser ModuleLoader
-      // registration, so source-level tests must keep every runtime import on
-      // the checked-out Harness source graph (including nested importers).
-      '@deepseek-ai/dsh-client-runtime/client': resolve(
-        harnessRoot,
-        'packages/client/runtime/src/client/index.ts',
-      ),
-    },
-  },
   plugins: [
     tsconfigPaths({
       root: import.meta.dirname,

@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   verify:
-    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    name: ${{ matrix.label }} / ${{ matrix.os }} / Node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
     env:
       DSH_HARNESS_ROOT: deepseek-harness
@@ -20,18 +20,37 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        node: [22.19.0, 24.x]
+        include:
+          - label: rc.2
+            ref: dsh-v0.1.1-rc.2
+            os: ubuntu-latest
+            node: 22.19.0
+          - label: rc.2
+            ref: dsh-v0.1.1-rc.2
+            os: ubuntu-latest
+            node: 24.x
+          - label: rc.2
+            ref: dsh-v0.1.1-rc.2
+            os: windows-latest
+            node: 22.19.0
+          - label: rc.2
+            ref: dsh-v0.1.1-rc.2
+            os: windows-latest
+            node: 24.x
+          - label: alpha.1 source smoke
+            ref: dsh-v0.1.2-alpha.1
+            os: ubuntu-latest
+            node: 24.x
 
     steps:
       - name: Check out plugin
         uses: actions/checkout@v4
 
-      - name: Check out DSH rc1 source
+      - name: Check out DSH source
         uses: actions/checkout@v4
         with:
           repository: deepseek-ai/deepseek-harness
-          ref: dsh-v0.1.1-rc.1
+          ref: ${{ matrix.ref }}
           path: deepseek-harness
 
       - name: Set up pnpm
@@ -54,8 +73,11 @@ jobs:
       - name: Install plugin dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck against checked-out DSH source
+        run: pnpm typecheck:harness
+
       - name: Typecheck, test, and build
         run: pnpm check
 
       - name: Verify package contents
-        run: npm pack --dry-run --ignore-scripts
+        run: npm pack --dry-run --json --ignore-scripts

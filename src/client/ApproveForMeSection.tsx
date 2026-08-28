@@ -5,7 +5,6 @@ import {
   useMemo,
   useState,
 } from 'react'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
   InjectFace,
   PropsLocale,
@@ -24,6 +23,7 @@ import type {
   ApproveForMeSettings,
   ApproveForMeSettingsState,
 } from './settings-types.ts'
+import type { SnapshotStore } from './snapshot-store.ts'
 import type { SettingsLocaleKey } from './settings-locale.ts'
 import styles from './ApproveForMeSettingsSection.module.css'
 
