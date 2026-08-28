@@ -1,9 +1,14 @@
 .card {
-  background: var(--dsh-color-surface, #fff);
-  border: 1px solid var(--dsh-color-border, #d0d5dd);
-  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-3);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
   list-style: none;
   max-width: 820px;
+}
+
+.card:has(.disclosure[open]) {
+  background: var(--dsw-alias-bg-layer-2);
+  border-color: var(--dsw-alias-label-dimmed);
 }
 
 .disclosure {
@@ -31,14 +36,14 @@
 }
 
 .cardDescription {
-  color: var(--dsh-color-text-secondary, #667085);
+  color: var(--dsw-alias-label-tertiary);
   font-size: 13px;
   font-weight: 400;
   line-height: 1.5;
 }
 
 .disclosure[open] .cardHeader {
-  border-bottom: 1px solid var(--dsh-color-border, #d0d5dd);
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
 .disclosure > .section {
@@ -64,7 +69,7 @@
 .hint,
 .description,
 .status {
-  color: var(--dsh-color-text-secondary, #667085);
+  color: var(--dsw-alias-label-secondary);
   font-size: 14px;
   line-height: 1.55;
   margin: 0;
@@ -73,25 +78,25 @@
 .notice,
 .error,
 .success {
-  border: 1px solid var(--dsh-color-border, #d0d5dd);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   padding: 12px 14px;
 }
 
 .notice {
-  background: var(--dsh-color-surface-secondary, #f8fafc);
+  background: var(--dsw-alias-bg-layer-2);
 }
 
 .error {
-  background: #fff4f2;
-  border-color: #fda29b;
-  color: #912018;
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, var(--dsw-alias-bg-layer-1));
+  border-color: var(--dsw-alias-state-error-secondary);
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .success {
-  background: #ecfdf3;
-  border-color: #6ce9a6;
-  color: #05603a;
+  background: var(--dsw-alias-state-success-tertiary);
+  border-color: var(--dsw-alias-state-success-secondary);
+  color: var(--dsw-alias-state-success-primary);
 }
 
 .errorTitle {
@@ -123,7 +128,7 @@
 
 .modeCard {
   align-items: flex-start;
-  border: 1px solid var(--dsh-color-border, #d0d5dd);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -132,8 +137,8 @@
 }
 
 .modeCard:has(input:checked) {
-  border-color: var(--dsh-color-accent, #155eef);
-  box-shadow: 0 0 0 1px var(--dsh-color-accent, #155eef);
+  border-color: var(--dsw-alias-state-business-primary);
+  box-shadow: 0 0 0 1px var(--dsw-alias-state-business-primary);
 }
 
 .modeText {
@@ -150,10 +155,10 @@
 
 .select,
 .textarea {
-  background: var(--dsh-color-surface, #fff);
-  border: 1px solid var(--dsh-color-border, #d0d5dd);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
-  color: var(--dsh-color-text, #101828);
+  color: var(--dsw-alias-label-primary);
   font: inherit;
   padding: 9px 11px;
   width: 100%;
@@ -169,12 +174,12 @@
 .textarea:focus-visible,
 .button:focus-visible,
 .secondaryButton:focus-visible {
-  outline: 2px solid var(--dsh-color-accent, #155eef);
+  outline: 2px solid var(--dsw-alias-state-business-primary);
   outline-offset: 2px;
 }
 
 .inlineError {
-  color: #b42318;
+  color: var(--dsw-alias-state-error-primary);
   font-size: 13px;
   font-weight: 400;
 }
@@ -202,14 +207,14 @@
 }
 
 .button {
-  background: var(--dsh-color-accent, #155eef);
+  background: var(--dsw-alias-state-business-primary);
   color: #fff;
 }
 
 .secondaryButton {
   background: transparent;
-  border-color: var(--dsh-color-border, #d0d5dd);
-  color: var(--dsh-color-text, #101828);
+  border-color: var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
 }
 
 .button:disabled,
