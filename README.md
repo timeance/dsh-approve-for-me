@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 `dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, literal command-prefix rules, and an optional tool-free LLM reviewer. Every successful decision grants one `allowed-once`; it never grants permanent access.
 
-Version `0.2.4` declares compatibility with DeepSeek Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, and `0.1.2-alpha.4`. These versions use the keyed third-party settings-card slot and shared client settings schema service.
+Version `0.2.5` declares compatibility with DeepSeek Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, and `0.1.2-rc.1`. These versions use the keyed third-party settings-card slot and shared client settings schema service.
 
 > [!WARNING]
 > This is an unofficial plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, wrapper, or environment. Keep allowlists narrow and retain Harness's native human approval for important operations.
@@ -226,7 +226,7 @@ A high-risk result stops automatic approval and returns the request to Harness. 
 | The reviewer did not run | Confirm `rules-and-llm`, a complete rule match, and a valid session model route |
 | Provider/model validation fails | Set both identifiers or clear both |
 | Saving reports a revision conflict | Reload the card, edit the latest value, and save again |
-| Installation reports peer warnings | Confirm Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, or `0.1.2-alpha.4` compatibility and run `pnpm check` |
+| Installation reports peer warnings | Confirm Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, or `0.1.2-rc.1` compatibility and run `pnpm check` |
 | Another Profile does not work | Install and configure the plugin in that Profile |
 
 ## FAQ
@@ -259,12 +259,12 @@ Yes. Install it in the `headless` Profile and configure YAML. The approval core 
 
 | Component | Baseline |
 | --- | --- |
-| DeepSeek Harness compatibility | `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4` |
+| DeepSeek Harness compatibility | `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, `0.1.2-rc.1` |
 | Node.js | `^22.19.0 || >=24.0.0` |
 | Cordis | `^4.0.1` |
 | npm channel | `@latest` for stable releases; `@beta` for beta testing |
 
-Version `0.2.4` keeps the keyed settings-card integration, adapts the Settings, Session event, and permission-preset API differences, and preserves the existing approval and native fallback behavior. The Settings RPC is registered through Connection and uses Connection's authentication and Host/Origin protections; it is not documented as having a separate plugin-owned loopback-only restriction.
+Version `0.2.5` keeps the keyed settings-card integration, adapts the Settings, Session event, and permission-preset API differences, and preserves the existing approval and native fallback behavior on Harness `0.1.2-rc.1`. The Settings RPC is registered through Connection and uses Connection's authentication and Host/Origin protections; it is not documented as having a separate plugin-owned loopback-only restriction.
 
 ## Development and verification
 
