@@ -9,7 +9,7 @@
 
 `dsh-approve-for-me` 是 DeepSeek Harness 的自动沙箱审批（automatic sandbox approval）插件，用于 Shell 和 PowerShell 的沙箱扩权（sandbox escalation）。它依次执行固定高风险检查、字面命令前缀规则和可选的无工具大模型复核器（LLM reviewer）。成功时只授予当前请求一次 `allowed-once`，不会永久授权。
 
-`0.2.4` 声明兼容 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-alpha.1` 和 `0.1.2-alpha.4`。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
+`0.2.5` 声明兼容 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` 和 `0.1.2-rc.1`。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
 
 > [!WARNING]
 > 本项目不是 DeepSeek 官方插件，未经独立安全审计且不提供担保。内置检查无法覆盖所有命令、参数、wrapper 和环境差异。请使用尽可能窄的正向允许列表（allowlist），并为重要操作保留 Harness 原生人工审批。
@@ -228,7 +228,7 @@ reviewer:
 | reviewer 没有运行 | 确认使用 `rules-and-llm`、规则完整匹配且 session 模型路由有效 |
 | provider/model 校验失败 | 同时填写两项，或同时清空 |
 | 保存提示 revision conflict | 重新加载卡片，基于最新值编辑并保存 |
-| 安装出现 peer warning | 确认 Harness `0.1.1-rc.2`、`0.1.2-alpha.1` 或 `0.1.2-alpha.4` 兼容性，并运行 `pnpm check` |
+| 安装出现 peer warning | 确认 Harness `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` 或 `0.1.2-rc.1` 兼容性，并运行 `pnpm check` |
 | 另一个 Profile 不生效 | 在该 Profile 中单独安装和配置 |
 
 ## 常见问题
@@ -261,12 +261,12 @@ reviewer:
 
 | 项目 | 基线 |
 | --- | --- |
-| DeepSeek Harness 兼容范围 | `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` |
+| DeepSeek Harness 兼容范围 | `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4`、`0.1.2-rc.1` |
 | Node.js | `^22.19.0 || >=24.0.0` |
 | Cordis | `^4.0.1` |
 | npm 通道 | 稳定版使用 `@latest`；beta 测试使用 `@beta` |
 
-`0.2.4` 保留 keyed 设置卡片集成，适配 Settings、Session 事件和权限预设 API 差异，并保留现有审批与 Harness 原生回退行为。Settings RPC 通过 Connection 注册并使用 Connection 的认证与 Host/Origin 防护；文档不将其描述为插件另有独立的 loopback-only 限制。
+`0.2.5` 保留 keyed 设置卡片集成，适配 Settings、Session 事件和权限预设 API 差异，并保留现有审批与 Harness 原生回退行为；已针对 Harness `0.1.2-rc.1` 验证。Settings RPC 通过 Connection 注册并使用 Connection 的认证与 Host/Origin 防护；文档不将其描述为插件另有独立的 loopback-only 限制。
 
 ## 开发与验证
 
