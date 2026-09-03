@@ -324,6 +324,9 @@ describe("fixed high-risk signals", () => {
     ["curl -f https://example.test", "shell"],
     ["Invoke-RestMethod -Uri https://example.test -Method Get", "pwsh"],
     ["python --version", "shell"],
+    ["nodejs1.2 --version", "shell"],
+    ["perl5 --version", "shell"],
+    ["ruby3.1 --version", "shell"],
   ] as const)("does not flag read-only command %s", (command, dialect) => {
     expect(detectFixedHighRisk(command, dialect)).toEqual({ status: "safe" });
   });

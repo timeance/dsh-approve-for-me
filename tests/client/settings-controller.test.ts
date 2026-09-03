@@ -38,6 +38,20 @@ const SETTINGS_SCHEMA = Schema.object({
   }).required(),
 }).toJSON()
 
+const TEST_SCHEMA_VALIDATOR = {
+  rehydrate(serialized: unknown) {
+    return new Schema(serialized as Schema)
+  },
+  validate(schema: Schema, draft: unknown): string | undefined {
+    try {
+      schema(draft)
+      return undefined
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error)
+    }
+  },
+}
+
 const VALUE: ApproveForMeSettings = {
   version: 1,
   mode: 'rules-and-llm',
@@ -128,18 +142,19 @@ function controllerFor(wire: ReturnType<typeof api>) {
   return new ApproveForMeSettingsController(
     wire.settings as never,
     legacyModelCatalogSource(wire.llm as never),
+    TEST_SCHEMA_VALIDATOR,
   )
 }
 
 describe('approve-for-me settings controller', () => {
   it('rejects invalid schemas and values at the descriptor boundary', () => {
-    expect(settingsValueOf(view())).toEqual(VALUE)
-    expect(() => settingsValueOf({ ...view(), schema: { nope: true } }))
+    expect(settingsValueOf(view(), TEST_SCHEMA_VALIDATOR)).toEqual(VALUE)
+    expect(() => settingsValueOf({ ...view(), schema: { nope: true } }, TEST_SCHEMA_VALIDATOR))
       .toThrow(/invalid settings schema|does not match/)
     expect(() => settingsValueOf({
       ...view(),
       value: { ...VALUE, version: 2 },
-    })).toThrow(/invalid approve-for-me settings|does not match/)
+    }, TEST_SCHEMA_VALIDATOR)).toThrow(/invalid approve-for-me settings|does not match/)
   })
 
   it('loads describe and llm.models without importing model-selection state', async () => {
@@ -302,7 +317,7 @@ describe('approve-for-me settings controller', () => {
       ...VALUE,
       reviewer: { timeoutMs: VALUE.reviewer!.timeoutMs },
     }
-    expect(settingsValueOf(view(inherited))).toEqual(inherited)
+    expect(settingsValueOf(view(inherited), TEST_SCHEMA_VALIDATOR)).toEqual(inherited)
     expect(settingsMutationOps(VALUE, inherited).slice(-2)).toEqual([
       { op: 'unset', path: ['reviewer', 'provider'] },
       { op: 'unset', path: ['reviewer', 'model'] },

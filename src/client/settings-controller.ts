@@ -1,4 +1,4 @@
-import Schema from '@deepseek-ai/schemastery'
+import type Schema from '@deepseek-ai/schemastery'
 import { parseApprovalSettings } from '../core/settings.ts'
 import type {
   ApproveForMeSettingsDescriptor,
@@ -25,25 +25,6 @@ export type SettingsSchemaValidator = {
   validate(schema: Schema, draft: unknown): string | undefined
 }
 
-/**
- * Keep the standalone settingsValueOf helper usable for consumers and unit
- * tests that do not have a Cordis client context. The browser plugin passes
- * DSH's shared ctx.settingsSchema service to the controller at runtime.
- */
-const LOCAL_SCHEMA_VALIDATOR: SettingsSchemaValidator = {
-  rehydrate(serialized) {
-    return new Schema(serialized as Schema)
-  },
-  validate(schema, draft) {
-    try {
-      ;(schema as unknown as (value: unknown) => unknown)(draft)
-      return undefined
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error)
-    }
-  },
-}
-
 const INITIAL: ApproveForMeSettingsState = {
   status: 'idle',
   error: null,
@@ -64,10 +45,13 @@ function responseError(error: { code: string; message: string }): string {
   return error.message + ' (' + error.code + ')'
 }
 
-/** Validate both the serialized schema envelope and locked nested value. */
+/**
+ * Validate both the serialized schema envelope and locked nested value.
+ * DSH's shared settingsSchema service must be supplied by the client host.
+ */
 export function settingsValueOf(
   view: ApproveForMeSettingsNamespaceView,
-  schemaValidator: SettingsSchemaValidator = LOCAL_SCHEMA_VALIDATOR,
+  schemaValidator: SettingsSchemaValidator,
 ): ApproveForMeSettings {
   if (view.ns !== APPROVE_FOR_ME_SETTINGS_NS) {
     throw new Error('unexpected settings namespace: ' + view.ns)
@@ -171,7 +155,7 @@ export class ApproveForMeSettingsController {
       ): Promise<ApproveForMeSettingsRpcResult<ApproveForMeSettingsDescriptor>>
     },
     private readonly models: ModelCatalogSource,
-    private readonly schemaValidator: SettingsSchemaValidator = LOCAL_SCHEMA_VALIDATOR,
+    private readonly schemaValidator: SettingsSchemaValidator,
   ) {}
 
   /** Load settings and the independent Host model catalog together. */

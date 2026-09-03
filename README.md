@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 `dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, literal command-prefix rules, and an optional tool-free LLM reviewer. Every successful decision grants one `allowed-once`; it never grants permanent access.
 
-Version `0.2.5` declares compatibility with DeepSeek Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, and `0.1.2-rc.1`. These versions use the keyed third-party settings-card slot and shared client settings schema service.
+Version `0.3.0` declares compatibility with DeepSeek Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, and `0.1.2-rc.1`. These versions use the keyed third-party settings-card slot and shared client settings schema service.
 
 > [!WARNING]
 > This is an unofficial plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, wrapper, or environment. Keep allowlists narrow and retain Harness's native human approval for important operations.
@@ -58,7 +58,7 @@ A prefix is a parsed token prefix, not exact string equality. Additional argumen
 
 Known package lifecycle actions, path-qualified executables, direct scripts, wrappers, mutating PowerShell aliases, ambiguous parsing, and fixed high-risk patterns return to human approval even when a prefix appears to match.
 
-The Web card is optional. The client registers the keyed `settings.plugin.item` slot with key `approve-for-me` and consumes Harness's shared settings schema service. The card uses the plugin RPC registered on Harness's authenticated Connection, inheriting Connection authentication and Host/Origin protections; PR1 does not claim an additional plugin-owned loopback-only boundary. Persistence, schema validation, revision conflicts, redaction, and hot reload remain owned by Harness's Settings service. The card does not make approval decisions and does not depend on `llm-pi-ai`.
+The Web card is optional. The client registers the keyed `settings.plugin.item` slot with key `approve-for-me` and consumes Harness's shared settings schema service. The card uses the plugin RPC registered on Harness's authenticated Connection, inheriting Connection authentication and Host/Origin protections; the plugin does not claim an additional plugin-owned loopback-only boundary. Persistence, schema validation, revision conflicts, redaction, and hot reload remain owned by Harness's Settings service. The card does not make approval decisions and does not depend on `llm-pi-ai`. The exported settings controller helpers require the host's schema validator explicitly; the browser bundle does not ship a second local schema rehydrator.
 
 Check the package actually installed in the Profile:
 
@@ -245,7 +245,7 @@ There are fixed high-risk checks, but no built-in positive allowlist. Your allow
 
 ### Does it directly reject high-risk commands?
 
-No. Version `0.2.4` stops automatic approval and hands the decision back to the user.
+No. Version `0.3.0` stops automatic approval and hands the decision back to the user.
 
 ### Can the reviewer expand the allowlist?
 
@@ -264,7 +264,7 @@ Yes. Install it in the `headless` Profile and configure YAML. The approval core 
 | Cordis | `^4.0.1` |
 | npm channel | `@latest` for stable releases; `@beta` for beta testing |
 
-Version `0.2.5` keeps the keyed settings-card integration, adapts the Settings, Session event, and permission-preset API differences, and preserves the existing approval and native fallback behavior on Harness `0.1.2-rc.1`. The Settings RPC is registered through Connection and uses Connection's authentication and Host/Origin protections; it is not documented as having a separate plugin-owned loopback-only restriction.
+Version `0.3.0` keeps the keyed settings-card integration, adapts the Settings, Session event, and permission-preset API differences, and preserves the existing approval and native fallback behavior on Harness `0.1.2-rc.1`. The Settings RPC is registered through Connection and uses Connection's authentication and Host/Origin protections; it is not documented as having a separate plugin-owned loopback-only restriction. Client settings helpers now receive the shared schema validator from the host instead of bundling a local rehydrator.
 
 ## Development and verification
 

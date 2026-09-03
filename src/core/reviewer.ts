@@ -89,7 +89,7 @@ const TRUSTED_ROLES = new Set<TrustedTranscriptRole>(["user", "developer", "user
 
 function applyRedactions(value: string): string {
   return value
-    .replace(/-----BEGIN (?:[^-\r\n]+ )?PRIVATE KEY-----[\s\S]*?(?:-----END (?:[^-\r\n]+ )?PRIVATE KEY-----|$)/giu, REDACTION)
+    .replace(/(?:-----BEGIN PRIVATE KEY-----|-----BEGIN [^-\r\n]+ PRIVATE KEY-----)[\s\S]*?(?:-----END PRIVATE KEY-----|-----END [^-\r\n]+ PRIVATE KEY-----|$)/giu, REDACTION)
     .replace(/\b(?:github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{16})\b/gu, REDACTION)
     .replace(/\b(Authorization\s*:\s*)(?:Bearer|Basic)\s+[^\s,;]+/giu, `$1${REDACTION}`)
     .replace(/([A-Za-z][A-Za-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gu, `$1${REDACTION}@`)
