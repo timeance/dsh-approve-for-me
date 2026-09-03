@@ -2,7 +2,6 @@ import { Service, type Context } from '@deepseek-ai/cordis'
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import {
   SettingsConflictError,
-  settingsNamespace,
   type SettingsDescriptor,
   type SettingsPathOp,
 } from '@deepseek-ai/dsh-settings'
@@ -13,8 +12,11 @@ import type {
   ApproveForMeSettingsPathOp,
   ApproveForMeSettingsRpcResult,
 } from './settings-remote-types.ts'
+import {
+  APPROVE_FOR_ME_SETTINGS_NAMESPACE,
+  registerConnectionRpc,
+} from './dsh-compat.ts'
 
-const SETTINGS_NAMESPACE = settingsNamespace('approve-for-me')
 const RPC_CHANNEL = '/approve-for-me'
 const DESCRIBE_ENDPOINT = 'describe'
 const MUTATE_ENDPOINT = 'mutate'
@@ -66,7 +68,7 @@ function parseMutation(value: unknown): {
 }
 
 function remoteView(descriptor: SettingsDescriptor): ApproveForMeSettingsNamespaceView {
-  if (String(descriptor.ns) !== SETTINGS_NAMESPACE) {
+  if (String(descriptor.ns) !== APPROVE_FOR_ME_SETTINGS_NAMESPACE) {
     throw new Error('approve-for-me settings descriptor has an unexpected namespace')
   }
   return {
@@ -109,18 +111,18 @@ function badRequest(message: string): ApproveForMeSettingsRpcResult<never> {
   }
 }
 
-/** Loopback-only settings bridge; the approval core remains independent of Web. */
+/** Settings bridge on the authenticated Connection channel; the approval core remains independent of Web. */
 export class ApproveForMeSettingsRemote extends Service {
   static inject = ['settings', 'connection']
 
   constructor(ctx: Context) {
     super(ctx, 'approveForMeSettings')
-    ;(ctx.connection.rpc as unknown as { handle(channel: string, handler: ConnectionRpcHandler, options?: { authority: string }): void }).handle(RPC_CHANNEL, this.dispatch, { authority: 'loopback' })
+    registerConnectionRpc(ctx, RPC_CHANNEL, this.dispatch)
   }
 
   describe(): ApproveForMeSettingsDescriptor {
     const descriptor = this.ctx.settings.describe({ redactSecrets: true })
-      .find(candidate => String(candidate.ns) === SETTINGS_NAMESPACE)
+      .find(candidate => String(candidate.ns) === APPROVE_FOR_ME_SETTINGS_NAMESPACE)
     return {
       writable: this.ctx.settings.writable,
       ...(descriptor === undefined ? {} : { view: remoteView(descriptor) }),
@@ -134,7 +136,7 @@ export class ApproveForMeSettingsRemote extends Service {
     await (this.ctx.settings as unknown as {
       mutate(namespace: string, ops: readonly SettingsPathOp[], expectedRevision?: number): Promise<unknown>
     }).mutate(
-      SETTINGS_NAMESPACE,
+      APPROVE_FOR_ME_SETTINGS_NAMESPACE,
       ops as readonly SettingsPathOp[],
       expectedRevision,
     )

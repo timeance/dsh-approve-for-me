@@ -8,7 +8,7 @@ import type {
 
 const RPC_CHANNEL = '/approve-for-me'
 
-/** Browser adapter for the companion's loopback-only Connection RPC channel. */
+/** Browser adapter for the companion's authenticated Connection RPC channel. */
 export class ApproveForMeSettingsRpc {
   constructor(private readonly rpc: ConnectionHandle['rpc']) {}
 

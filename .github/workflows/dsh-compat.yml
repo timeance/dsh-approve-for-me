@@ -41,6 +41,10 @@ jobs:
             ref: dsh-v0.1.2-alpha.1
             os: ubuntu-latest
             node: 24.x
+          - label: alpha.4 source smoke
+            ref: dsh-v0.1.2-alpha.4
+            os: ubuntu-latest
+            node: 24.x
 
     steps:
       - name: Check out plugin

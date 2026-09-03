@@ -2,16 +2,19 @@ import { Context } from '@deepseek-ai/cordis'
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import {
   SettingsConflictError,
-  settingsNamespace,
 } from '@deepseek-ai/dsh-settings'
 import { describe, expect, it, vi } from 'vitest'
 
+import {
+  APPROVE_FOR_ME_SETTINGS_NAMESPACE,
+} from '../../src/dsh-compat.ts'
 import { ApproveForMeSettingsRemote } from '../../src/settings-remote-host.ts'
 
-const NS = settingsNamespace('approve-for-me')
+const NS = APPROVE_FOR_ME_SETTINGS_NAMESPACE
 
 async function bench(options: {
   present?: boolean
+  rpcApi?: 'legacy' | 'modern'
   writable?: boolean
   mutate?: ReturnType<typeof vi.fn>
 } = {}) {
@@ -25,14 +28,6 @@ async function bench(options: {
   const describeSettings = vi.fn(() => options.present === false ? [] : [descriptor])
   const mutateSettings = options.mutate ?? vi.fn(() => Promise.resolve())
   let handler: ConnectionRpcHandler | undefined
-  const handle = vi.fn((
-    _channel: string,
-    candidate: ConnectionRpcHandler,
-    _policy: { authority: string },
-  ) => {
-    handler = candidate
-    return vi.fn(() => Promise.resolve())
-  })
 
   const ctx = new Context()
   ctx.provide('settings', {
@@ -40,7 +35,28 @@ async function bench(options: {
     mutate: mutateSettings,
     writable: options.writable ?? true,
   } as never)
-  ctx.provide('connection', { rpc: { handle } } as never)
+  const register = (candidate: ConnectionRpcHandler) => {
+    handler = candidate
+    return vi.fn(() => Promise.resolve())
+  }
+  const handle = options.rpcApi === 'legacy'
+    ? vi.fn(function legacyHandle(
+      _channel: string,
+      candidate: ConnectionRpcHandler,
+      _policy: { authority: string },
+    ) {
+      return register(candidate)
+    })
+    : vi.fn(function modernHandle(
+      _channel: string,
+      candidate: ConnectionRpcHandler,
+      _ignored?: unknown,
+    ) {
+      return register(candidate)
+    })
+  ctx.provide('connection', options.rpcApi === 'legacy'
+    ? { rpc: { handle } }
+    : { rpc: { handle }, fetch: {} } as never)
 
   const fiber = ctx.plugin(ApproveForMeSettingsRemote)
   await fiber.await()
@@ -50,13 +66,13 @@ async function bench(options: {
 }
 
 describe('approve-for-me settings Remote', () => {
-  it('registers a loopback-only Cordis Connection channel', async () => {
+  it('registers an alpha.4 Connection channel without the removed authority option', async () => {
     const b = await bench()
     expect(b.handle).toHaveBeenCalledWith(
       '/approve-for-me',
       expect.any(Function),
-      { authority: 'loopback' },
     )
+    expect(b.handle.mock.calls[0]).toHaveLength(2)
 
     await expect(b.handler('describe', {}, new AbortController().signal)).resolves.toEqual({
       ok: true,
@@ -71,6 +87,16 @@ describe('approve-for-me settings Remote', () => {
       },
     })
     expect(b.describeSettings).toHaveBeenCalledWith({ redactSecrets: true })
+  })
+
+  it('keeps the legacy loopback registration for rc.2 and alpha.1', async () => {
+    const b = await bench({ rpcApi: 'legacy' })
+    expect(b.handle).toHaveBeenCalledWith(
+      '/approve-for-me',
+      expect.any(Function),
+      { authority: 'loopback' },
+    )
+    expect(b.handle.mock.calls[0]).toHaveLength(3)
   })
 
   it('mutates only the fixed namespace and returns a fresh descriptor', async () => {
