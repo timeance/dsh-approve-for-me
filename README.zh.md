@@ -9,7 +9,7 @@
 
 `dsh-approve-for-me` 是 DeepSeek Harness 的自动沙箱审批（automatic sandbox approval）插件，用于 Shell 和 PowerShell 的沙箱扩权（sandbox escalation）。它依次执行固定高风险检查、字面命令前缀规则和可选的无工具大模型复核器（LLM reviewer）。成功时只授予当前请求一次 `allowed-once`，不会永久授权。
 
-`0.2.5` 声明兼容 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` 和 `0.1.2-rc.1`。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
+`0.3.0` 声明兼容 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` 和 `0.1.2-rc.1`。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
 
 > [!WARNING]
 > 本项目不是 DeepSeek 官方插件，未经独立安全审计且不提供担保。内置检查无法覆盖所有命令、参数、wrapper 和环境差异。请使用尽可能窄的正向允许列表（allowlist），并为重要操作保留 Harness 原生人工审批。
@@ -60,7 +60,7 @@ PowerShell: Get-Content -LiteralPath README.md
 
 即使前缀看似匹配，已知的包管理器生命周期动作、带路径的可执行文件、直接脚本、wrapper、会写入的 PowerShell alias、解析歧义和固定高风险形态仍会转人工审批。
 
-Web 卡片是可选配置入口。客户端以 key `approve-for-me` 注册 keyed `settings.plugin.item` slot，并使用 Harness 共享的 settings schema service。卡片通过 Harness 已认证的 Connection 调用插件 RPC，并继承 Connection 的认证与 Host/Origin 防护；PR1 不声称插件另有独立的 loopback-only 边界。持久化、schema 校验、revision conflict、脱敏和热加载由 Harness Settings service 负责。卡片不做审批决策，也不依赖 `llm-pi-ai`。
+Web 卡片是可选配置入口。客户端以 key `approve-for-me` 注册 keyed `settings.plugin.item` slot，并使用 Harness 共享的 settings schema service。卡片通过 Harness 已认证的 Connection 调用插件 RPC，并继承 Connection 的认证与 Host/Origin 防护；插件不声称另有独立的 loopback-only 边界。持久化、schema 校验、revision conflict、脱敏和热加载由 Harness Settings service 负责。卡片不做审批决策，也不依赖 `llm-pi-ai`。导出的 settings controller 辅助函数现在必须显式接收 Host 提供的 schema validator，浏览器 bundle 不再携带第二份本地 schema rehydrator。
 
 检查 Profile 实际安装的版本：
 
@@ -247,7 +247,7 @@ reviewer:
 
 ### 高风险命令会被直接拒绝吗？
 
-不会。`0.2.4` 会停止自动审批，把决定交回用户。
+不会。`0.3.0` 会停止自动审批，把决定交回用户。
 
 ### reviewer 能扩大 allowlist 吗？
 
@@ -266,7 +266,7 @@ reviewer:
 | Cordis | `^4.0.1` |
 | npm 通道 | 稳定版使用 `@latest`；beta 测试使用 `@beta` |
 
-`0.2.5` 保留 keyed 设置卡片集成，适配 Settings、Session 事件和权限预设 API 差异，并保留现有审批与 Harness 原生回退行为；已针对 Harness `0.1.2-rc.1` 验证。Settings RPC 通过 Connection 注册并使用 Connection 的认证与 Host/Origin 防护；文档不将其描述为插件另有独立的 loopback-only 限制。
+`0.3.0` 保留 keyed 设置卡片集成，适配 Settings、Session 事件和权限预设 API 差异，并保留现有审批与 Harness 原生回退行为；已针对 Harness `0.1.2-rc.1` 验证。Settings RPC 通过 Connection 注册并使用 Connection 的认证与 Host/Origin 防护；文档不将其描述为插件另有独立的 loopback-only 限制。客户端 settings 辅助函数改为接收 Host 的共享 schema validator，不再打包本地 rehydrator。
 
 ## 开发与验证
 

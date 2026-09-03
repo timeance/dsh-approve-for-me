@@ -562,13 +562,19 @@ function isPowerShellWebMutation(command: string, tokens: readonly string[]): bo
   return false;
 }
 
+function hasNumericVersionSuffix(command: string, name: string): boolean {
+  if (!command.startsWith(name)) return false;
+  const suffix = command.slice(name.length);
+  return suffix.length === 0 || suffix.split(".").every((part) => /^[0-9]+$/u.test(part));
+}
+
 function isScriptInterpreter(command: string): boolean {
   return SCRIPT_INTERPRETERS.has(command) ||
     command === "py" ||
-    /^nodejs(?:\d+(?:\.\d+)*)?$/u.test(command) ||
-    /^perl(?:\d+(?:\.\d+)*)?$/u.test(command) ||
-    /^python(?:\d+(?:\.\d+)*)?$/u.test(command) ||
-    /^ruby(?:\d+(?:\.\d+)*)?$/u.test(command);
+    hasNumericVersionSuffix(command, "nodejs") ||
+    hasNumericVersionSuffix(command, "perl") ||
+    hasNumericVersionSuffix(command, "python") ||
+    hasNumericVersionSuffix(command, "ruby");
 }
 
 function isDynamicInterpreter(command: string, tokens: readonly string[]): boolean {
