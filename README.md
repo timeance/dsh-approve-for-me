@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 `dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, literal command-prefix rules, and an optional tool-free LLM reviewer. Every successful decision grants one `allowed-once`; it never grants permanent access.
 
-Version `0.2.3` targets DeepSeek Harness `0.1.1-rc.2` as its npm baseline and keeps source-level forward compatibility with `0.1.2-alpha.1`; both use the keyed third-party settings-card slot and shared client settings schema service.
+Version `0.2.4` declares compatibility with DeepSeek Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, and `0.1.2-alpha.4`. These versions use the keyed third-party settings-card slot and shared client settings schema service.
 
 > [!WARNING]
 > This is an unofficial plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, wrapper, or environment. Keep allowlists narrow and retain Harness's native human approval for important operations.
@@ -58,7 +58,7 @@ A prefix is a parsed token prefix, not exact string equality. Additional argumen
 
 Known package lifecycle actions, path-qualified executables, direct scripts, wrappers, mutating PowerShell aliases, ambiguous parsing, and fixed high-risk patterns return to human approval even when a prefix appears to match.
 
-The Web card is optional. In rc.2 the client registers the keyed `settings.plugin.item` slot with key `approve-for-me` and consumes Harness's shared settings schema service. The card is available only over a loopback connection and uses the plugin's loopback-only RPC. Persistence, schema validation, revision conflicts, redaction, and hot reload remain owned by Harness's Settings service. The card does not make approval decisions and does not depend on `llm-pi-ai`.
+The Web card is optional. The client registers the keyed `settings.plugin.item` slot with key `approve-for-me` and consumes Harness's shared settings schema service. The card uses the plugin RPC registered on Harness's authenticated Connection, inheriting Connection authentication and Host/Origin protections; PR1 does not claim an additional plugin-owned loopback-only boundary. Persistence, schema validation, revision conflicts, redaction, and hot reload remain owned by Harness's Settings service. The card does not make approval decisions and does not depend on `llm-pi-ai`.
 
 Check the package actually installed in the Profile:
 
@@ -213,7 +213,7 @@ A high-risk result stops automatic approval and returns the request to Harness. 
 | Reviewer input | Separates trusted guidance from untrusted tool data, limits content, and redacts common credential formats |
 | Reviewer capability | Fresh agent with no tools |
 | Network | Uses the provider route already configured in Harness |
-| Web writes | Loopback-only RPC delegates persistence to the Settings service |
+| Web writes | Authenticated Connection RPC delegates persistence to the Settings service |
 | Approval scope | One `allowed-once` for the current request |
 
 ## Troubleshooting
@@ -221,12 +221,12 @@ A high-risk result stops automatic approval and returns the request to Harness. 
 | Symptom | Check |
 | --- | --- |
 | `Approve for me` is missing from Access | Install in the active Profile, restart it, and inspect `--dump-config` |
-| The settings card is missing | Use the `web` Profile through `127.0.0.1` or another loopback address |
+| The settings card is missing | Use the `web` Profile through its authenticated Connection URL |
 | A matching command still asks | Check every compound segment, high-risk signals, tool type, and reviewer result |
 | The reviewer did not run | Confirm `rules-and-llm`, a complete rule match, and a valid session model route |
 | Provider/model validation fails | Set both identifiers or clear both |
 | Saving reports a revision conflict | Reload the card, edit the latest value, and save again |
-| Installation reports peer warnings | Confirm Harness `0.1.1-rc.2` compatibility and run `pnpm check` |
+| Installation reports peer warnings | Confirm Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, or `0.1.2-alpha.4` compatibility and run `pnpm check` |
 | Another Profile does not work | Install and configure the plugin in that Profile |
 
 ## FAQ
@@ -245,7 +245,7 @@ There are fixed high-risk checks, but no built-in positive allowlist. Your allow
 
 ### Does it directly reject high-risk commands?
 
-No. Version `0.2.3` stops automatic approval and hands the decision back to the user.
+No. Version `0.2.4` stops automatic approval and hands the decision back to the user.
 
 ### Can the reviewer expand the allowlist?
 
@@ -259,23 +259,12 @@ Yes. Install it in the `headless` Profile and configure YAML. The approval core 
 
 | Component | Baseline |
 | --- | --- |
-| DeepSeek Harness npm baseline | `0.1.1-rc.2` |
-| DeepSeek Harness source forward check | `0.1.2-alpha.1` (not published to npm) |
+| DeepSeek Harness compatibility | `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4` |
 | Node.js | `^22.19.0 || >=24.0.0` |
 | Cordis | `^4.0.1` |
 | npm channel | `@latest` for stable releases; `@beta` for beta testing |
 
-The rc.2 adaptation uses the keyed third-party settings-card registration and `settingsSchema` service required by Harness. The removed rc7 schema-form package is no longer a dependency. The permission patch preserves `Read Only`, `Workspace Write`, and `Full access`, then adds `Approve for me`. Permission preset icons remain controlled by the Harness UI.
-
-On August 28, 2026, version `0.2.3` was verified against the official `dsh-v0.1.1-rc.2` and `dsh-v0.1.2-alpha.1` source checkouts using public declarations and source-path tests:
-
-- typecheck, the full regression suite, coverage, and the production build passed.
-- npm pack produced 28 files, including both READMEs.
-- The compatibility workflow covers Ubuntu and Windows on Node 22.19 and 24, including the Windows PowerShell path.
-- Regression coverage includes rc1 `permission/preset.origin` values, shared `settingsSchema` injection, one-shot PowerShell correlation, persistent PowerShell fallback, settings conflicts, reconnects, and non-loopback behavior.
-- In an isolated DSH home, the rc1 Web Profile loaded the plugin and served both the Web root and plugin client bundle. The rc1 headless Profile read YAML `permission.defaultPreset: approve-for-me` and completed a controlled mock-LLM Bash escalation; its session log recorded `permission/preset` with origin `default`, `approval/decided: allowed-once`, and a successful tool result.
-
-A previous rc.6 smoke test on August 15, 2026 verified headless one-time approval and Web bundle loading. It is historical evidence, not the current compatibility baseline.
+Version `0.2.4` keeps the keyed settings-card integration, adapts the Settings, Session event, and permission-preset API differences, and preserves the existing approval and native fallback behavior. The Settings RPC is registered through Connection and uses Connection's authentication and Host/Origin protections; it is not documented as having a separate plugin-owned loopback-only restriction.
 
 ## Development and verification
 

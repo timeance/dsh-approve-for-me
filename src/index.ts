@@ -5,7 +5,6 @@ import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { WIDER_MODES, type SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-permission-presets'
 import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
 import type { ObjectJsonSchema, ToolDispatchExecution } from '@deepseek-ai/dsh-tools'
@@ -22,6 +21,12 @@ import {
   type ShellToolName,
   type TrustedTranscriptEntry,
 } from './core/index.ts'
+import {
+  APPROVE_FOR_ME_SETTINGS_NAMESPACE,
+  currentPermissionPreset,
+  installSettingsSectionCompat,
+  sessionEventAt,
+} from './dsh-compat.ts'
 import { ApproveForMeSettingsRemote } from './settings-remote-host.ts'
 
 export { ApproveForMeSettingsRemote } from './settings-remote-host.ts'
@@ -47,7 +52,6 @@ export const inject = [
   'tools',
 ] as const
 
-const SETTINGS_NAMESPACE = settingsNamespace('approve-for-me')
 const MAX_JUSTIFICATION_CHARS = 4_000
 const REVIEWER_MAX_TOKENS = 1_024
 
@@ -198,11 +202,14 @@ function contentText(value: unknown): string {
 function trustedTranscript(agent: Agent): TrustedTranscriptEntry[] {
   const result: TrustedTranscriptEntry[] = []
   for (const seq of agent.session.surface.nodes) {
-    const event = agent.session.events[seq]
-    if (event?.type !== 'user/message') continue
-    const rawSource = event.data.source as unknown
+    const event = sessionEventAt(agent.session, seq)
+    if (!isRecord(event)) continue
+    const type = event.type
+    const data = event.data
+    if (type !== 'user/message' || !isRecord(data)) continue
+    const rawSource = data.source
     const source = isRecord(rawSource) ? rawSource : undefined
-    const content = contentText(event.data.content)
+    const content = contentText(data.content)
     if (source === undefined || content.length === 0) continue
     if (source.kind === 'user') {
       result.push({ role: 'user', content })
@@ -322,7 +329,7 @@ async function reviewWithModel(
 export function apply(ctx: Context, config: ApprovalSettings = APPROVE_FOR_ME_DEFAULTS): void {
   const base = deepFreeze(toSettingsDocument(validatedBase(config)))
   let settingsSource: () => ApprovalSettings = () => base
-  installSettingsSection(ctx, SETTINGS_NAMESPACE, Config, base, {
+  installSettingsSectionCompat(ctx, Config, base, {
     setSource: (current) => {
       settingsSource = current
     },
@@ -353,7 +360,7 @@ export function apply(ctx: Context, config: ApprovalSettings = APPROVE_FOR_ME_DE
     let activePreset: boolean
     try {
       capturedSettings = settingsSource()
-      activePreset = ctx.permissionPresets.current(request.agent.session.events) === 'approve-for-me'
+      activePreset = currentPermissionPreset(ctx, request.agent.session) === 'approve-for-me'
     } catch {
       return next()
     }

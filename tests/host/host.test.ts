@@ -40,6 +40,7 @@ function agentWithVisibleInputs(options: {
   agentOptions?: Record<string, unknown>
   requestConfig?: { provider?: string; model?: string } | undefined
   presetOrigin?: 'default' | 'selection' | 'inferred'
+  sessionApi?: 'legacy' | 'modern'
 } = {}): Agent {
   const events: unknown[] = [
     {
@@ -66,15 +67,20 @@ function agentWithVisibleInputs(options: {
       data: { preset: 'approve-for-me', origin: options.presetOrigin },
     })
   }
+  const session: Record<string, unknown> = {
+    surface: { nodes: [0, 1] },
+    requestHeader: () => requestConfig === undefined
+      ? undefined
+      : { config: requestConfig },
+  }
+  if (options.sessionApi === 'legacy') {
+    session.events = events
+  } else {
+    session.eventAt = (seq: number) => events[seq]
+  }
   return {
     options: options.agentOptions ?? {},
-    session: {
-      events,
-      surface: { nodes: [0, 1] },
-      requestHeader: () => requestConfig === undefined
-        ? undefined
-        : { config: requestConfig },
-    },
+    session,
   } as unknown as Agent
 }
 
@@ -117,6 +123,8 @@ function fakeHost(
   options: {
     currentMode?: string
     preset?: string
+    presetApi?: 'legacy' | 'modern'
+    settingsPresent?: boolean
     start?: ReturnType<typeof vi.fn>
   } = {},
 ): FakeHost {
@@ -125,7 +133,9 @@ function fakeHost(
   const disposalOrder: string[] = []
   const start = options.start ?? vi.fn()
   const ctx = {
-    inject: vi.fn(),
+    inject: vi.fn((_deps: readonly string[], callback: (context: Context) => void) => {
+      if (options.settingsPresent !== false) callback(ctx as unknown as Context)
+    }),
     plugin: vi.fn(),
     on: vi.fn((event: string, listener: WaterfallListener) => {
       listeners.set(event, listener)
@@ -137,8 +147,34 @@ function fakeHost(
       cleanups.push(factory())
       return vi.fn()
     }),
+    settings: options.settingsPresent === false ? undefined : {
+      installSection: (
+        _owner: unknown,
+        _namespace: string,
+        _schema: unknown,
+        entry: ApprovalSettings,
+        hooks: {
+          setSource: (current: () => ApprovalSettings) => void
+          onChange: () => void
+        },
+      ) => {
+        hooks.setSource(() => entry)
+        hooks.onChange()
+      },
+    },
     permissionPresets: {
-      current: vi.fn(() => options.preset ?? 'approve-for-me'),
+      current: vi.fn((input: unknown) => {
+        if (options.presetApi === 'legacy') {
+          if (!Array.isArray(input)) throw new Error('expected legacy session events')
+        } else if (
+          typeof input !== 'object'
+          || input === null
+          || typeof (input as { eventAt?: unknown }).eventAt !== 'function'
+        ) {
+          throw new Error('expected alpha.4 session')
+        }
+        return options.preset ?? 'approve-for-me'
+      }),
     },
     sandboxPolicy: {
       resolve: vi.fn(() => ({ mode: options.currentMode ?? 'workspace-write' })),
@@ -187,6 +223,18 @@ describe('approve-for-me Host integration', () => {
     expect(host.ctx.plugin).toHaveBeenCalledWith(hostPlugin.ApproveForMeSettingsRemote)
   })
 
+  it('keeps static settings active when the optional Settings service is absent', async () => {
+    const host = fakeHost(
+      settings('rules-only', [{ tool: 'shell', prefix: 'git status' }]),
+      { settingsPresent: false },
+    )
+    const agent = agentWithVisibleInputs()
+
+    await expect(decide(host, execution(agent, 'call-static-settings', 'git status')))
+      .resolves.toBe('allowed-once')
+    expect(host.ctx.inject).toHaveBeenCalledWith(['settings'], expect.any(Function))
+  })
+
   it('allows a fully matched low-risk rules-only bash request without a reviewer call', async () => {
     const host = fakeHost(settings('rules-only', [{ tool: 'shell', prefix: 'git status' }]))
     const agent = agentWithVisibleInputs()
@@ -194,15 +242,19 @@ describe('approve-for-me Host integration', () => {
 
     await expect(decide(host, execution(agent, 'call-1', 'git status --short'), undefined, native))
       .resolves.toBe('allowed-once')
+    expect(host.ctx.permissionPresets.current).toHaveBeenCalledWith(agent.session)
     expect(native).not.toHaveBeenCalled()
     expect(host.start).not.toHaveBeenCalled()
   })
 
   it.each(['default', 'selection', 'inferred'] as const)(
-    'keeps rc1 permission/preset origin %s transparent to preset lookup',
+    'keeps legacy permission/preset origin %s transparent to preset lookup',
     async origin => {
-      const host = fakeHost(settings('rules-only', [{ tool: 'shell', prefix: 'git status' }]))
-      const agent = agentWithVisibleInputs({ presetOrigin: origin })
+      const host = fakeHost(
+        settings('rules-only', [{ tool: 'shell', prefix: 'git status' }]),
+        { presetApi: 'legacy' },
+      )
+      const agent = agentWithVisibleInputs({ presetOrigin: origin, sessionApi: 'legacy' })
 
       await expect(decide(host, execution(agent, `call-origin-${origin}`, 'git status')))
         .resolves.toBe('allowed-once')

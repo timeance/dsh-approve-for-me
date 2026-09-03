@@ -1,37 +1,7 @@
-import { existsSync, rmSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import ts from 'typescript'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import { defineConfig } from 'vitest/config'
 
 const decoratorSyntax = /^\s*@[A-Za-z_$][\w$]*/m
-const generatedHarnessProject = '.vitest.harness.generated.json'
-const harnessRoot = resolve(
-  import.meta.dirname,
-  process.env.DSH_HARNESS_ROOT ?? '../deepseek-harness',
-)
-
-function harnessProjects(): string[] {
-  const configured = process.env.DSH_HARNESS_TSCONFIG
-  if (configured === undefined) return ['tsconfig.vitest.json']
-
-  const harnessTsconfig = resolve(import.meta.dirname, configured)
-  if (!existsSync(harnessTsconfig)) {
-    throw new Error(`DSH_HARNESS_TSCONFIG does not exist: ${harnessTsconfig}`)
-  }
-  const project = resolve(import.meta.dirname, generatedHarnessProject)
-  writeFileSync(project, `${JSON.stringify({
-    extends: harnessTsconfig,
-    include: [
-      'src/**/*.ts',
-      'src/**/*.tsx',
-      'tests/**/*.ts',
-      'tests/**/*.tsx',
-    ],
-  }, null, 2)}\n`)
-  process.once('exit', () => rmSync(project, { force: true }))
-  return [project, harnessTsconfig]
-}
 
 function standardDecoratorPlugin() {
   return {
@@ -61,14 +31,8 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
   },
-  plugins: [
-    tsconfigPaths({
-      root: import.meta.dirname,
-      projects: harnessProjects(),
-      // The rc1 source workspace lives beside this plugin, so its imports
-      // must use the same DSH source aliases as imports from this package.
-      loose: true,
-    }),
-    standardDecoratorPlugin(),
-  ],
+  resolve: {
+    tsconfigPaths: true,
+  },
+  plugins: [standardDecoratorPlugin()],
 })
