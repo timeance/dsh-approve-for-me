@@ -296,14 +296,8 @@ $package = Get-ChildItem '.\dsh-approve-for-me-*.tgz' |
 dsh plugin --profile web add $package.FullName
 ```
 
-### Publishing tags
-
-Stable releases use `publishConfig.tag: latest`, so `npm publish` updates `latest`. Publish prereleases with `npm publish --tag beta`; this updates `beta` without moving `latest`.
-
 ## Security and license
 
 Report vulnerabilities privately through GitHub Security Advisories. Do not submit API keys, credentials, complete prompts, private paths, or unredacted tool arguments. See [SECURITY.md](SECURITY.md).
-
-Thanks to the [LINUX DO](https://linux.do/) community for its help and feedback.
 
 Licensed under the [MIT License](LICENSE).
