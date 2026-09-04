@@ -297,14 +297,9 @@ $package = Get-ChildItem '.\dsh-approve-for-me-*.tgz' |
 dsh plugin --profile web add $package.FullName
 ```
 
-### 发布标签
-
-稳定版使用 `publishConfig.tag: latest`，因此 `npm publish` 会更新 `latest`。预发布版本应使用 `npm publish --tag beta`，只更新 `beta`，不移动 `latest`。
 
 ## 安全与许可证
 
 请通过 GitHub Security Advisories 私下报告漏洞。不要提交 API key、凭据、完整 prompt、私有路径或未脱敏的工具参数。详见 [SECURITY.md](SECURITY.md)。
-
-感谢 [LINUX DO](https://linux.do/) 社区提供帮助和反馈。
 
 本项目使用 [MIT License](LICENSE)。
