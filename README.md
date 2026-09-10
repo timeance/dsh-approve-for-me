@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Version `0.3.0` declares compatibility with DeepSeek Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, and `0.1.2-rc.1`. These versions use the keyed third-party settings-card slot and shared client settings schema service.
 
+The `0.3.1` compatibility candidate targets DSH `0.1.5-rc.1`, but is **not ready for release**. Its custom Settings RPC fails to register: the upstream Connection plugin no longer injects `webServer`, while custom-channel registration still reads that service through the Connection context. Typecheck, 256 existing tests, and the plugin build pass, but this does not establish working Web Settings. Keep using the supported DSH versions above until this blocker is resolved.
+
 > [!WARNING]
 > This is an unofficial plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, wrapper, or environment. Keep allowlists narrow and retain Harness's native human approval for important operations.
 
