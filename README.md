@@ -9,9 +9,9 @@ English | [中文](README.zh.md)
 
 `dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, literal command-prefix rules, and an optional tool-free LLM reviewer. Every successful decision grants one `allowed-once`; it never grants permanent access.
 
-Version `0.3.0` declares compatibility with DeepSeek Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, and `0.1.2-rc.1`. These versions use the keyed third-party settings-card slot and shared client settings schema service.
+The `0.3.1` candidate targets DeepSeek Harness `0.1.1-rc.2`, `0.1.2-rc.1`, and `0.1.5-rc.2`. Earlier alpha releases are no longer compatibility targets. These versions use the keyed third-party settings-card slot and shared client settings schema service.
 
-The `0.3.1` compatibility candidate targets DSH `0.1.5-rc.2`. Settings now uses the authenticated shared `/api` carrier to avoid the upstream custom-channel `webServer` injection error. Typecheck, 258 tests, and the plugin build pass against the published rc.2 packages. A real Connection integration test covers Settings service loading, describe/mutate, invalid-request rejection, and route disposal; HTTP authentication and full Web/Headless Profile smoke have not been rerun. This candidate remains draft pending those runtime checks.
+All three target versions pass typecheck, 258 tests, and the plugin build with their actual DSH dependencies (one inapplicable transport test is skipped per version). Real Connection integration covers shared-route Settings reads/writes on 0.1.2 and 0.1.5, and legacy channel registration/disposal on 0.1.1. Full authenticated Web/Headless Profile smoke remains outstanding; this candidate stays draft pending that runtime verification.
 
 > [!WARNING]
 > This is an unofficial plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, wrapper, or environment. Keep allowlists narrow and retain Harness's native human approval for important operations.

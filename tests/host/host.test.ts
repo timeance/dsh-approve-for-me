@@ -148,6 +148,10 @@ function fakeHost(
       return vi.fn()
     }),
     settings: options.settingsPresent === false ? undefined : {
+      register: (_namespace: string, _schema: unknown, options: { base: ApprovalSettings }) => ({
+        get: () => options.base,
+        watch: () => () => {},
+      }),
       installSection: (
         _owner: unknown,
         _namespace: string,

@@ -156,7 +156,7 @@ describe('approve-for-me settings Remote', () => {
 })
 
 // Use the published Connection implementation without webServer injection, as in 0.1.5.
-it('loads Settings on the real shared carrier, validates requests and disposes routes', async () => {
+it.runIf('fetch' in HostConnectionService.prototype)('loads Settings on the real shared carrier, validates requests and disposes routes', async () => {
   const ctx = new Context()
   const mutate = vi.fn(async () => {})
   ctx.provide('settings', {
@@ -169,7 +169,7 @@ it('loads Settings on the real shared carrier, validates requests and disposes r
     name: 'test-connection',
     apply(scope) {
       // This test enters after HTTP authentication; no auth methods are called.
-      connection = new HostConnectionService(scope, [], {} as never)
+      connection = new HostConnectionService(...[scope, [], {}] as unknown as ConstructorParameters<typeof HostConnectionService>)
     },
   })
   await owner.await()
@@ -177,7 +177,7 @@ it('loads Settings on the real shared carrier, validates requests and disposes r
   try {
     await remote.await()
     expect(ctx.get('approveForMeSettings')).toBeDefined()
-    const carrier = connection.createSharedFetchHandler('/api')
+    const carrier = connection.createSharedFetchHandler(...['/api'] as unknown as Parameters<HostConnectionService['createSharedFetchHandler']>)
     const request = (endpoint: string, payload: unknown = {}, method = `approve-for-me/${endpoint}`) =>
       new Request(`http://localhost/api/approve-for-me/${endpoint}`, {
         method: 'POST',
@@ -200,6 +200,33 @@ it('loads Settings on the real shared carrier, validates requests and disposes r
     await remote.dispose()
     expect((await carrier.fetch(request('describe'))).status).toBe(404)
     expect((await carrier.fetch(request('mutate'))).status).toBe(404)
+  } finally {
+    await remote.dispose()
+    await owner.dispose()
+  }
+})
+
+it.runIf(!('fetch' in HostConnectionService.prototype))('loads the real legacy Settings channel and unregisters it', async () => {
+  const ctx = new Context()
+  const unregister = vi.fn()
+  const register = vi.fn(() => unregister)
+  ctx.provide('webServer', { register } as never)
+  ctx.provide('settings', { describe: () => [], writable: false } as never)
+  const owner = ctx.plugin({
+    name: 'test-legacy-connection',
+    inject: ['webServer'],
+    apply(scope) {
+      new HostConnectionService(...[scope, []] as unknown as ConstructorParameters<typeof HostConnectionService>)
+    },
+  })
+  await owner.await()
+  const remote = ctx.plugin(ApproveForMeSettingsRemote)
+  try {
+    await remote.await()
+    expect(ctx.get('approveForMeSettings')).toBeDefined()
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ path: '/approve-for-me' }))
+    await remote.dispose()
+    expect(unregister).toHaveBeenCalledOnce()
   } finally {
     await remote.dispose()
     await owner.dispose()

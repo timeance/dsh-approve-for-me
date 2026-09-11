@@ -68,14 +68,12 @@ describe('DSH session compatibility', () => {
     ctx.permissionPresets.set(original, 'danger-full-access')
     expect(current(ctx, original)).toBe('danger-full-access')
 
-    // This fixture exercises the alpha.4 snapshot API while the harness also
-    // type-checks the file against legacy Session declarations.
-    const snapshotEvents = (original as unknown as {
-      snapshotEvents(): unknown
-    }).snapshotEvents()
+    // Restore from the public event reader of the active DSH version.
+    const reader = original as unknown as { snapshotEvents?: () => unknown; events: readonly unknown[] }
+    const snapshotEvents = reader.snapshotEvents?.() ?? reader.events
     const restored = ctx.sessions.create(
       SessionId('permission-restored'),
-      { seed: snapshotEvents } as unknown as Parameters<typeof ctx.sessions.create>[1],
+      { seed: snapshotEvents } as Parameters<typeof ctx.sessions.create>[1],
     )
     expect(current(ctx, restored)).toBe('danger-full-access')
 
