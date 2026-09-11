@@ -11,7 +11,7 @@
 
 `0.3.0` 声明兼容 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` 和 `0.1.2-rc.1`。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
 
-`0.3.1` 适配候选版本以 DSH `0.1.5-rc.1` 为目标，但**尚不可发布**。自定义 Settings RPC 无法注册：上游 Connection 插件不再注入 `webServer`，而自定义通道注册仍通过 Connection 上下文访问该服务。类型检查、现有 256 项测试及插件构建通过，不能据此认为 Web 设置已兼容。阻塞解决前，请继续使用上述已支持的 DSH 版本。
+`0.3.1` 适配候选版本以 DSH `0.1.5-rc.2` 为目标。Settings 已改用经过认证的共享 `/api` 通道，避开上游自定义通道的 `webServer` 注入错误。针对已发布 rc.2 包的类型检查、258 项测试和插件构建通过；真实 Connection 集成测试验证了设置服务加载、读取/修改、无效请求拒绝和路由卸载。尚未重新完成 HTTP 认证及完整 Web/Headless Profile smoke，候选版本仍保持 Draft，等待这些运行验证。
 
 > [!WARNING]
 > 本项目不是 DeepSeek 官方插件，未经独立安全审计且不提供担保。内置检查无法覆盖所有命令、参数、wrapper 和环境差异。请使用尽可能窄的正向允许列表（allowlist），并为重要操作保留 Harness 原生人工审批。

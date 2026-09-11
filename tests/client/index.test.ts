@@ -49,7 +49,8 @@ function bench(mode: 'rc2' | 'alpha' = 'rc2', isLoopback = true) {
     },
   }))
   const rpcCall = vi.fn((channel: string, endpoint: string) => {
-    if (channel === '/approve-for-me' && endpoint === 'describe') {
+    if (channel === (mode === 'rc2' ? '/approve-for-me' : '/api')
+      && endpoint === (mode === 'rc2' ? 'describe' : 'approve-for-me/describe')) {
       return describeSettings()
     }
     throw new Error('unexpected test RPC')

@@ -102,7 +102,7 @@ function mountSettings(
   const slots = (ctx as unknown as { slots: any }).slots
   const remoteEvents = ctx.remote as unknown as CompatibleRemoteEvents
   const controller = new ApproveForMeSettingsController(
-    new ApproveForMeSettingsRpc(connection.rpc),
+    new ApproveForMeSettingsRpc(connection.rpc, connection.api === undefined),
     models,
     ctx.settingsSchema,
   )

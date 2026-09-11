@@ -49,12 +49,12 @@ jobs:
             ref: dsh-v0.1.2-rc.1
             os: ubuntu-latest
             node: 24.x
-          - label: 0.1.5-rc.1
-            ref: dsh-v0.1.5-rc.1
+          - label: 0.1.5-rc.2
+            ref: dsh-v0.1.5-rc.2
             os: ubuntu-latest
             node: 24.x
-          - label: 0.1.5-rc.1
-            ref: dsh-v0.1.5-rc.1
+          - label: 0.1.5-rc.2
+            ref: dsh-v0.1.5-rc.2
             os: windows-latest
             node: 22.19.0
 
