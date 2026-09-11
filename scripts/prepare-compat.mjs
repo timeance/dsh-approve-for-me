@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 
 // Only changes the disposable CI checkout; release dependencies stay on latest.
 const version = process.argv[2]
@@ -17,6 +17,8 @@ if (version !== '0.1.5-rc.2') {
     .match(/@deepseek-ai\/dsh-[a-z0-9-]+/g))].sort()
   appendFileSync('pnpm-workspace.yaml', '\noverrides:\n' + packages
     .map(name => `  ${JSON.stringify(name)}: ${JSON.stringify(version)}\n`).join(''))
+  // This job resolves a different dependency graph; the latest lockfile is not its input.
+  rmSync('pnpm-lock.yaml')
 }
 // Do not let resolution silently add release-age exemptions.
 appendFileSync('pnpm-workspace.yaml', '\nminimumReleaseAgeStrict: true\n')
