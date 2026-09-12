@@ -10,10 +10,10 @@ const RPC_CHANNEL = '/approve-for-me'
 
 /** Browser adapter for the companion's authenticated Connection RPC channel. */
 export class ApproveForMeSettingsRpc {
-  constructor(private readonly rpc: ConnectionHandle['rpc']) {}
+  constructor(private readonly rpc: ConnectionHandle['rpc'], private readonly sharedApi = false) {}
 
   describe(): Promise<ApproveForMeSettingsRpcResult<ApproveForMeSettingsDescriptor>> {
-    return this.rpc.call(RPC_CHANNEL, 'describe', {}) as
+    return this.rpc.call(this.sharedApi ? '/api' : RPC_CHANNEL, this.sharedApi ? 'approve-for-me/describe' : 'describe', {}) as
       Promise<ApproveForMeSettingsRpcResult<ApproveForMeSettingsDescriptor>>
   }
 
@@ -24,7 +24,7 @@ export class ApproveForMeSettingsRpc {
     const payload = expectedRevision === undefined
       ? { ops }
       : { ops, expectedRevision }
-    return this.rpc.call(RPC_CHANNEL, 'mutate', payload) as
+    return this.rpc.call(this.sharedApi ? '/api' : RPC_CHANNEL, this.sharedApi ? 'approve-for-me/mutate' : 'mutate', payload) as
       Promise<ApproveForMeSettingsRpcResult<ApproveForMeSettingsDescriptor>>
   }
 }

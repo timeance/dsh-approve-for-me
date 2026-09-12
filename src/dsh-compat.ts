@@ -1,4 +1,5 @@
 import * as settingsApi from '@deepseek-ai/dsh-settings'
+import * as connectionApi from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
@@ -138,6 +139,44 @@ export function registerConnectionRpc(
   handler: ConnectionRpcHandler,
 ): () => Promise<void> {
   const connection = ctx.connection as unknown as ConnectionHandle
+  // alpha.1+ uses the remote-backed client. Register its two Settings endpoints
+  // on the authenticated shared carrier; custom HTTP channels fail on 0.1.5.
+  const fetch = connection.fetch as {
+    register?: (route: {
+      path: string
+      methods: string[]
+      requestBody: 'buffered'
+      fetch(request: Request): Promise<Response>
+    }) => () => Promise<void>
+  } | undefined
+  if (typeof fetch?.register === 'function') {
+    const schema = (connectionApi as unknown as {
+      clientRequestSchema: { safeParse(value: unknown):
+        | { success: false }
+        | { success: true; data: { rpcId: string; method: string; payload: unknown } } }
+    }).clientRequestSchema
+    const disposers = ['describe', 'mutate'].map(endpoint => fetch.register!({
+      path: `/api${channel}/${endpoint}`,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      async fetch(request) {
+        if (request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/json') {
+          return new Response('content type must be application/json', { status: 415 })
+        }
+        let body: unknown
+        try { body = await request.json() } catch {
+          return new Response('body is not JSON', { status: 400 })
+        }
+        const parsed = schema.safeParse(body)
+        if (!parsed.success || parsed.data.method !== `${channel.slice(1)}/${endpoint}`) {
+          return new Response('invalid Settings RPC envelope', { status: 400 })
+        }
+        const result = await handler(endpoint, parsed.data.payload, request.signal)
+        return Response.json({ type: 'server-response', rpcId: parsed.data.rpcId, result })
+      },
+    }))
+    return async () => { await Promise.all(disposers.map(dispose => dispose())) }
+  }
   const rpc = connection.rpc
   if (typeof rpc.handle !== 'function') {
     throw new Error('approve-for-me: DSH Connection RPC registry is unavailable')

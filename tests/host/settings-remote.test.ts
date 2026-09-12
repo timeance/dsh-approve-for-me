@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
+import { HostConnectionService, type ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import {
   SettingsConflictError,
 } from '@deepseek-ai/dsh-settings'
@@ -153,4 +153,82 @@ describe('approve-for-me settings Remote', () => {
       view: { ns: 'approve-for-me' },
     })
   })
+})
+
+// Use the published Connection implementation without webServer injection, as in 0.1.5.
+it.runIf('fetch' in HostConnectionService.prototype)('loads Settings on the real shared carrier, validates requests and disposes routes', async () => {
+  const ctx = new Context()
+  const mutate = vi.fn(async () => {})
+  ctx.provide('settings', {
+    describe: () => [{ ns: NS, schema: { type: 'object' }, value: { version: 1 }, revision: 4 }],
+    mutate,
+    writable: true,
+  } as never)
+  let connection!: HostConnectionService
+  const owner = ctx.plugin({
+    name: 'test-connection',
+    apply(scope) {
+      // This test enters after HTTP authentication; no auth methods are called.
+      connection = new HostConnectionService(...[scope, [], {}] as unknown as ConstructorParameters<typeof HostConnectionService>)
+    },
+  })
+  await owner.await()
+  const remote = ctx.plugin(ApproveForMeSettingsRemote)
+  try {
+    await remote.await()
+    expect(ctx.get('approveForMeSettings')).toBeDefined()
+    const carrier = connection.createSharedFetchHandler(...['/api'] as unknown as Parameters<HostConnectionService['createSharedFetchHandler']>)
+    const request = (endpoint: string, payload: unknown = {}, method = `approve-for-me/${endpoint}`) =>
+      new Request(`http://localhost/api/approve-for-me/${endpoint}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'client-request', rpcId: 'settings-test', method, payload }),
+      })
+    const response = await carrier.fetch(request('describe'))
+    expect(await response.json()).toMatchObject({
+      type: 'server-response', rpcId: 'settings-test',
+      result: { ok: true, value: { writable: true, view: { ns: NS, revision: 4 } } },
+    })
+    const ops = [{ op: 'unset', path: [] }]
+    const saved = await carrier.fetch(request('mutate', { ops, expectedRevision: 4 }))
+    expect((await saved.json()).result.ok).toBe(true)
+    expect(mutate).toHaveBeenCalledExactlyOnceWith(NS, ops, 4)
+    expect((await carrier.fetch(request('describe', { ops }, 'approve-for-me/mutate'))).status).toBe(400)
+    const malformed = await carrier.fetch(request('mutate', { ops: 'invalid' }))
+    expect((await malformed.json()).result.error.code).toBe('bad-request')
+    expect(mutate).toHaveBeenCalledTimes(1)
+    await remote.dispose()
+    expect((await carrier.fetch(request('describe'))).status).toBe(404)
+    expect((await carrier.fetch(request('mutate'))).status).toBe(404)
+  } finally {
+    await remote.dispose()
+    await owner.dispose()
+  }
+})
+
+it.runIf(!('fetch' in HostConnectionService.prototype))('loads the real legacy Settings channel and unregisters it', async () => {
+  const ctx = new Context()
+  const unregister = vi.fn()
+  const register = vi.fn(() => unregister)
+  ctx.provide('webServer', { register } as never)
+  ctx.provide('settings', { describe: () => [], writable: false } as never)
+  const owner = ctx.plugin({
+    name: 'test-legacy-connection',
+    inject: ['webServer'],
+    apply(scope) {
+      new HostConnectionService(...[scope, []] as unknown as ConstructorParameters<typeof HostConnectionService>)
+    },
+  })
+  await owner.await()
+  const remote = ctx.plugin(ApproveForMeSettingsRemote)
+  try {
+    await remote.await()
+    expect(ctx.get('approveForMeSettings')).toBeDefined()
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ path: '/approve-for-me' }))
+    await remote.dispose()
+    expect(unregister).toHaveBeenCalledOnce()
+  } finally {
+    await remote.dispose()
+    await owner.dispose()
+  }
 })

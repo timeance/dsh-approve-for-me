@@ -9,7 +9,9 @@
 
 `dsh-approve-for-me` 是 DeepSeek Harness 的自动沙箱审批（automatic sandbox approval）插件，用于 Shell 和 PowerShell 的沙箱扩权（sandbox escalation）。它依次执行固定高风险检查、字面命令前缀规则和可选的无工具大模型复核器（LLM reviewer）。成功时只授予当前请求一次 `allowed-once`，不会永久授权。
 
-`0.3.0` 声明兼容 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` 和 `0.1.2-rc.1`。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
+`0.3.1` 候选版本的兼容目标为 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-rc.1` 和 `0.1.5-rc.2`。不再承诺兼容早期 alpha 版本。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
+
+三个目标版本均已在各自实际 DSH 依赖下通过类型检查、258 项测试和插件构建（各跳过一个不适用的通道测试）。真实 Connection 集成验证覆盖 0.1.2/0.1.5 的共享路由 Settings 读写，以及 0.1.1 的旧通道注册/卸载。完整认证 Web/Headless Profile smoke 仍待完成，候选版本继续保持 Draft。
 
 > [!WARNING]
 > 本项目不是 DeepSeek 官方插件，未经独立安全审计且不提供担保。内置检查无法覆盖所有命令、参数、wrapper 和环境差异。请使用尽可能窄的正向允许列表（allowlist），并为重要操作保留 Harness 原生人工审批。
