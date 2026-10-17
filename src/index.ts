@@ -7,6 +7,7 @@ import { WIDER_MODES, type SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
 import type {} from '@deepseek-ai/dsh-permission-presets'
 import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
+import { BlockAssembler, createUserMessage, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { ObjectJsonSchema, ToolDispatchExecution } from '@deepseek-ai/dsh-tools'
 import type { ApprovalOutcome, ApprovalRequest } from '@deepseek-ai/dsh-user-approval'
 
@@ -16,6 +17,7 @@ import {
   detectFixedHighRisk,
   evaluateCommandRules,
   parseApprovalSettings,
+  parseReviewerOutput,
   type ApprovalSettings,
   type CommandPrefixRule,
   type ShellToolName,
@@ -26,6 +28,9 @@ import {
   currentPermissionPreset,
   installSettingsSectionCompat,
   sessionEventAt,
+  settingsConfigSchema,
+  settingsConfigValue,
+  type SettingsConfig,
 } from './dsh-compat.ts'
 import { ApproveForMeSettingsRemote } from './settings-remote-host.ts'
 
@@ -48,6 +53,7 @@ export const inject = [
   'permissionPresets',
   'sandboxPolicy',
   'subagents',
+  'llm',
   'systemPrompt',
   'tools',
 ] as const
@@ -62,7 +68,7 @@ interface ApprovalSettingsDocument extends Omit<ApprovalSettings, 'rules'> {
   }
 }
 
-export const Config: z<ApprovalSettingsDocument> = z.object({
+export const Config: z<ApprovalSettingsDocument> = settingsConfigSchema<ApprovalSettingsDocument>(z.object({
   version: z.union([1] as const).default(1),
   mode: z.union(['rules-only', 'rules-and-llm'] as const).default(APPROVE_FOR_ME_DEFAULTS.mode),
   rules: z.object({
@@ -90,7 +96,7 @@ export const Config: z<ApprovalSettingsDocument> = z.object({
     reviewerOutputChars: z.number().step(1).min(256).max(100_000)
       .default(APPROVE_FOR_ME_DEFAULTS.limits.reviewerOutputChars),
   }).default({ ...APPROVE_FOR_ME_DEFAULTS.limits }),
-})
+}))
 
 const REVIEWER_OUTPUT_SCHEMA: ObjectJsonSchema = {
   type: 'object',
@@ -252,6 +258,36 @@ function fusedSignal(
   ])
 }
 
+/** A complete, tool-free stream is required before any one-shot approval. */
+async function reviewStream(
+  stream: AsyncIterable<StreamChunk>, maxChars: number, signal: AbortSignal,
+): Promise<boolean> {
+  const assembler = new BlockAssembler()
+  let finished = false
+  let outputChars = 0
+  for await (const chunk of stream) {
+    if (signal.aborted || finished) return false
+    if (chunk.type === 'tool-call-delta'
+      || (chunk.type === 'block-start' && chunk.blockType !== 'text' && chunk.blockType !== 'reasoning')
+      || (chunk.type === 'block-end' && chunk.block.type !== 'text' && chunk.block.type !== 'reasoning')) return false
+    if (chunk.type === 'text-delta') {
+      outputChars += chunk.text.length
+      if (outputChars > maxChars) return false
+    }
+    assembler.push(chunk)
+    if (chunk.type === 'finish') {
+      if (chunk.reason.kind !== 'stop') return false
+      finished = true
+    }
+  }
+  if (!finished || signal.aborted) return false
+  const blocks = assembler.blocks()
+  const final = blocks.at(-1)
+  if (final?.type !== 'text' || blocks.slice(0, -1).some(block => block.type !== 'reasoning')) return false
+  const parsed = parseReviewerOutput(final.text, maxChars)
+  return parsed.ok && parsed.verdict.decision === 'allow'
+}
+
 async function reviewWithModel(
   ctx: Context,
   request: ApprovalRequest,
@@ -292,7 +328,21 @@ async function reviewWithModel(
   let disposed = false
   try {
     if (signal.aborted) return false
-    run = await ctx.subagents.start('spawn', {
+    // New activations inherit tools and context; a direct LLM call does not.
+    const legacy = ctx.subagents as unknown as {
+      start?: (provider: string, request: unknown) => Promise<SubagentRun>
+    }
+    if (typeof legacy.start !== 'function') {
+      const allowed = await reviewStream(ctx.llm.stream({
+        provider, model, system: persona.content,
+        messages: [createUserMessage({
+          source: { kind: 'user' }, content: [{ type: 'text', text: userPrompt.content }],
+        })],
+        tools: [], temperature: 0, maxTokens: REVIEWER_MAX_TOKENS, signal,
+      }), settings.limits.reviewerOutputChars, signal)
+      return allowed && !signal.aborted
+    }
+    run = await legacy.start('spawn', {
       parent: request.agent,
       label: 'approve-for-me reviewer',
       signal,
@@ -326,8 +376,9 @@ async function reviewWithModel(
   return allowCandidate && disposed && !signal.aborted
 }
 
-export function apply(ctx: Context, config: ApprovalSettings = APPROVE_FOR_ME_DEFAULTS): void {
-  const base = deepFreeze(toSettingsDocument(validatedBase(config)))
+export function apply(ctx: Context, config: SettingsConfig<ApprovalSettings> = APPROVE_FOR_ME_DEFAULTS): void {
+  const current = () => deepFreeze(toSettingsDocument(validatedBase(settingsConfigValue(config))))
+  const base = current()
   let settingsSource: () => ApprovalSettings = () => base
   installSettingsSectionCompat(ctx, Config, base, {
     setSource: (current) => {
@@ -335,7 +386,7 @@ export function apply(ctx: Context, config: ApprovalSettings = APPROVE_FOR_ME_DE
     },
     onChange: () => {},
     validate: validateSettingsDocument,
-  })
+  }, current)
 
   // A pending child fiber never blocks the approval plugin when settings is absent.
   ctx.plugin(ApproveForMeSettingsRemote)

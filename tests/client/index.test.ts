@@ -30,7 +30,7 @@ type SlotEntry = {
   inject?: () => unknown
 }
 
-function bench(mode: 'rc2' | 'alpha' = 'rc2', isLoopback = true) {
+function bench(mode: 'rc2' | 'alpha' | 'modern' = 'rc2', isLoopback = true) {
   const remoteListeners = new Map<string, Set<(...args: unknown[]) => void>>()
   const contextListeners = new Map<string, Set<(...args: unknown[]) => void>>()
   const effects: Array<() => void> = []
@@ -123,8 +123,8 @@ function bench(mode: 'rc2' | 'alpha' = 'rc2', isLoopback = true) {
       return {} as never
     },
     slots: {
-      inject(_name: string, register: () => (() => void)) {
-        effects.push(register())
+      inject(name: string, register: () => (() => void)) {
+        if (name === (mode === 'modern' ? 'plugins.bundle.config' : 'settings.plugin.item')) effects.push(register())
       },
       register(options: SlotEntry['options'] & { locale?: string }, component: unknown) {
         const entry: SlotEntry = {
@@ -240,4 +240,14 @@ describe('approve-for-me client apply', () => {
     expect(rc2.rpcCall).not.toHaveBeenCalled()
     expect(alpha.modelCatalog).not.toHaveBeenCalled()
   })
+})
+
+
+it('mounts the modern package configuration slot with the npm package key', () => {
+  const b = bench('modern')
+  b.activateAlpha()
+  expect(b.entries).toHaveLength(1)
+  expect(b.entries[0]?.options).toMatchObject({ name: 'plugins.bundle.config', key: 'dsh-approve-for-me' })
+  b.dispose()
+  expect(b.entries).toHaveLength(0)
 })

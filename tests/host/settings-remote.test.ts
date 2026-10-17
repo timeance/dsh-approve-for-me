@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { HostConnectionService, type ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
+import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 import {
   SettingsConflictError,
 } from '@deepseek-ai/dsh-settings'
@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   APPROVE_FOR_ME_SETTINGS_NAMESPACE,
+  type ConnectionRpcHandler,
 } from '../../src/dsh-compat.ts'
 import { ApproveForMeSettingsRemote } from '../../src/settings-remote-host.ts'
 
@@ -178,28 +179,35 @@ it.runIf('fetch' in HostConnectionService.prototype)('loads Settings on the real
     await remote.await()
     expect(ctx.get('approveForMeSettings')).toBeDefined()
     const carrier = connection.createSharedFetchHandler(...['/api'] as unknown as Parameters<HostConnectionService['createSharedFetchHandler']>)
+    const fetch = (request: Request) => carrier.fetch(...[request, (connection as unknown as { browserPeer?: unknown }).browserPeer] as unknown as Parameters<typeof carrier.fetch>)
     const request = (endpoint: string, payload: unknown = {}, method = `approve-for-me/${endpoint}`) =>
       new Request(`http://localhost/api/approve-for-me/${endpoint}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'client-request', rpcId: 'settings-test', method, payload }),
       })
-    const response = await carrier.fetch(request('describe'))
+    const response = await fetch(request('describe'))
+    if ('browserPeer' in connection) {
+      const visitor = { principal: { kind: 'visitor' } }
+      const denied = await carrier.fetch(...[request('mutate', { ops: [], expectedRevision: 4 }), visitor] as unknown as Parameters<typeof carrier.fetch>)
+      expect(denied.status).toBe(403)
+      expect(mutate).not.toHaveBeenCalled()
+    }
     expect(await response.json()).toMatchObject({
       type: 'server-response', rpcId: 'settings-test',
       result: { ok: true, value: { writable: true, view: { ns: NS, revision: 4 } } },
     })
     const ops = [{ op: 'unset', path: [] }]
-    const saved = await carrier.fetch(request('mutate', { ops, expectedRevision: 4 }))
+    const saved = await fetch(request('mutate', { ops, expectedRevision: 4 }))
     expect((await saved.json()).result.ok).toBe(true)
     expect(mutate).toHaveBeenCalledExactlyOnceWith(NS, ops, 4)
-    expect((await carrier.fetch(request('describe', { ops }, 'approve-for-me/mutate'))).status).toBe(400)
-    const malformed = await carrier.fetch(request('mutate', { ops: 'invalid' }))
+    expect((await fetch(request('describe', { ops }, 'approve-for-me/mutate'))).status).toBe(400)
+    const malformed = await fetch(request('mutate', { ops: 'invalid' }))
     expect((await malformed.json()).result.error.code).toBe('bad-request')
     expect(mutate).toHaveBeenCalledTimes(1)
     await remote.dispose()
-    expect((await carrier.fetch(request('describe'))).status).toBe(404)
-    expect((await carrier.fetch(request('mutate'))).status).toBe(404)
+    expect((await fetch(request('describe'))).status).toBe(404)
+    expect((await fetch(request('mutate'))).status).toBe(404)
   } finally {
     await remote.dispose()
     await owner.dispose()

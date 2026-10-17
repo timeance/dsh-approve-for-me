@@ -1,5 +1,4 @@
 import { Service, type Context } from '@deepseek-ai/cordis'
-import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import {
   SettingsConflictError,
   type SettingsDescriptor,
@@ -15,6 +14,7 @@ import type {
 import {
   APPROVE_FOR_ME_SETTINGS_NAMESPACE,
   registerConnectionRpc,
+  type ConnectionRpcHandler,
 } from './dsh-compat.ts'
 
 const RPC_CHANNEL = '/approve-for-me'

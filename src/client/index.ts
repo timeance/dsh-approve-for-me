@@ -140,4 +140,12 @@ function mountSettings(
     locale: LOCALE_NS,
     inject: injected,
   }, ApproveForMeSection))
+  // Only the slot declared by the active framework mounts; inject also handles
+  // a plugin-manager declaration arriving after this companion starts.
+  slots.inject('plugins.bundle.config', () => slots.register({
+    name: 'plugins.bundle.config',
+    key: 'dsh-approve-for-me',
+    locale: LOCALE_NS,
+    inject: injected,
+  }, ApproveForMeSection))
 }

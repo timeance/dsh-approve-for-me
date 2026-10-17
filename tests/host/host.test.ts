@@ -1,4 +1,7 @@
-import type { Context } from '@deepseek-ai/cordis'
+import { Context, resolveConfig } from '@deepseek-ai/cordis'
+import Loader from '@deepseek-ai/cordis-plugin-loader'
+import LlmRuntime, { LlmAdapter, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
+import { usesProfileSettings, type SettingsConfig } from '../../src/dsh-compat.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ToolDispatchExecution } from '@deepseek-ai/dsh-tools'
 import type { ApprovalOutcome, ApprovalRequest } from '@deepseek-ai/dsh-user-approval'
@@ -119,13 +122,14 @@ function approvalRequest(exec: ToolDispatchExecution, overrides: Partial<Approva
 }
 
 function fakeHost(
-  config: ApprovalSettings,
+  config: SettingsConfig<ApprovalSettings>,
   options: {
     currentMode?: string
     preset?: string
     presetApi?: 'legacy' | 'modern'
     settingsPresent?: boolean
     start?: ReturnType<typeof vi.fn>
+    stream?: ReturnType<typeof vi.fn>
   } = {},
 ): FakeHost {
   const listeners = new Map<string, WaterfallListener>()
@@ -137,6 +141,7 @@ function fakeHost(
       if (options.settingsPresent !== false) callback(ctx as unknown as Context)
     }),
     plugin: vi.fn(),
+    get: (name: string) => (ctx as unknown as Record<string, unknown>)[name],
     on: vi.fn((event: string, listener: WaterfallListener) => {
       listeners.set(event, listener)
       return vi.fn(() => {
@@ -148,6 +153,7 @@ function fakeHost(
       return vi.fn()
     }),
     settings: options.settingsPresent === false ? undefined : {
+      configure: vi.fn(),
       register: (_namespace: string, _schema: unknown, options: { base: ApprovalSettings }) => ({
         get: () => options.base,
         watch: () => () => {},
@@ -183,7 +189,8 @@ function fakeHost(
     sandboxPolicy: {
       resolve: vi.fn(() => ({ mode: options.currentMode ?? 'workspace-write' })),
     },
-    subagents: { start },
+    subagents: options.stream ? {} : { start },
+    llm: { stream: options.stream },
   } as unknown as Context
   apply(ctx, config)
   return {
@@ -581,4 +588,111 @@ describe('approve-for-me Host integration', () => {
     await expect(stale).resolves.toBe('rejected')
     expect(start).toHaveBeenCalledOnce()
   })
+})
+
+
+describe('modern reviewer stream', () => {
+  const text = { type: 'text-delta', index: 0, text: '{"decision":"allow"}' }
+  const finish = { type: 'finish', reason: { kind: 'stop' } }
+  function streamOf(chunks: unknown[]) {
+    return vi.fn(async function* (_options: unknown) { yield* chunks })
+  }
+  it('completes through the published LlmRuntime with a local tool-free adapter', async () => {
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime).await()
+    const received = vi.fn()
+    class ReviewerAdapter extends LlmAdapter {
+      override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+        received(options)
+        yield { type: 'text-delta', index: 0, text: '{"decision":"allow"}' }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      }
+    }
+    const owner = ctx.plugin({
+      inject: ['llm'],
+      apply(scope) { scope.llm.registerAdapter(['review-provider'], new ReviewerAdapter()) },
+    })
+    try {
+      await owner.await()
+      const stream = vi.fn((options: GenerateOptions) => ctx.get('llm')!.stream(options))
+      const host = fakeHost(settings('rules-and-llm', [{ tool: 'shell', prefix: 'git status' }]), { stream })
+      await expect(decide(host, execution(agentWithVisibleInputs(), 'real-llm', 'git status'))).resolves.toBe('allowed-once')
+      expect(received).toHaveBeenCalledOnce()
+      expect(received.mock.calls[0]?.[0]).toMatchObject({ tools: [], maxTokens: 1024 })
+      await host.cleanup()
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+  it('uses a single isolated call with no tools and explicit model routing', async () => {
+    const stream = streamOf([text, finish])
+    const host = fakeHost(settings('rules-and-llm', [{ tool: 'shell', prefix: 'git status' }]), { stream })
+    await expect(decide(host, execution(agentWithVisibleInputs(), 'modern-allow', 'git status'))).resolves.toBe('allowed-once')
+    expect(stream).toHaveBeenCalledOnce()
+    expect(stream.mock.calls[0]?.[0]).toMatchObject({
+      provider: 'review-provider', model: 'review-model', tools: [], maxTokens: 1024,
+      system: expect.stringContaining('sandbox-widening request'),
+      messages: [{ role: 'user', content: [{ type: 'text', text: expect.stringContaining('Inspect repository state.') }] }],
+    })
+    expect(host.start).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['missing terminal', [text]],
+    ['truncated', [text, { type: 'finish', reason: { kind: 'max-tokens' } }]],
+    ['after terminal', [text, finish, text]],
+    ['invalid JSON', [{ ...text, text: 'allow' }, finish]],
+    ['extra fields', [{ ...text, text: '{"decision":"allow","extra":true}' }, finish]],
+    ['oversized output', [{ ...text, text: ' '.repeat(100001) }, finish]],
+    ['tool request', [{ type: 'block-start', index: 1, blockType: 'tool-call' }, text, finish]],
+    ['multiple text blocks', [text, { ...text, index: 1 }, finish]],
+    ['deny', [{ ...text, text: '{"decision":"deny"}' }, finish]],
+  ])('falls back to human approval for %s', async (_label, chunks) => {
+    const host = fakeHost(settings('rules-and-llm', [{ tool: 'shell', prefix: 'git status' }]), { stream: streamOf(chunks) })
+    await expect(decide(host, execution(agentWithVisibleInputs(), 'modern-invalid', 'git status'))).resolves.toBe('rejected')
+  })
+  it('aborts pending streams on plugin disposal and drains the review', async () => {
+    let begin!: () => void
+    const started = new Promise<void>(resolve => { begin = resolve })
+    const stream = vi.fn(async function* (options: { signal: AbortSignal }) {
+      begin()
+      await new Promise<void>(resolve => options.signal.addEventListener('abort', () => resolve(), { once: true }))
+      yield text
+      yield finish
+    })
+    const host = fakeHost(settings('rules-and-llm', [{ tool: 'shell', prefix: 'git status' }]), { stream })
+    const review = decide(host, execution(agentWithVisibleInputs(), 'modern-dispose', 'git status'))
+    await started
+    await host.cleanup()
+    await expect(review).resolves.toBe('rejected')
+  })
+})
+
+it.runIf(usesProfileSettings)('keeps the real Loader volatile Config live without restarting the approval consumer', async () => {
+  const ctx = new Context()
+  await ctx.plugin(Loader).await()
+  let host!: FakeHost
+  const mount = vi.fn(function (_scope: Context, config: SettingsConfig<ApprovalSettings>) {
+    host = fakeHost(config)
+  })
+  ctx.loader.builtins['approval-test'] = { name: 'approve-for-me', Config: hostPlugin.Config, apply: mount }
+  const initial = settings('rules-only', [{ tool: 'shell', prefix: 'git status' }])
+  const options = { id: 'approve-for-me', name: 'cordis:approval-test', config: initial }
+  const id = await ctx.loader.create(options)
+  const entry = ctx.loader.resolve(id)
+  try {
+    await entry.fiber!.await()
+    const exec = () => execution(agentWithVisibleInputs(), 'volatile-settings', 'git status')
+    await expect(decide(host, exec())).resolves.toBe('allowed-once')
+    const next = settings('rules-only', [])
+    // Same resolve/update sequence used by profile reconciliation in DSH.
+    resolveConfig(entry.fiber!.runtime!, next)
+    await entry.update({ config: next })
+    await entry.fiber!.await()
+    expect(mount).toHaveBeenCalledOnce()
+    await expect(decide(host, exec())).resolves.toBe('rejected')
+    expect(initial.rules.commandPrefixes).toHaveLength(1)
+  } finally {
+    await entry.fiber!.dispose()
+    await ctx.fiber.dispose()
+  }
 })
