@@ -8,7 +8,6 @@ import {
 import type {
   InjectFace,
   PropsLocale,
-  PropsRuntime,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import {
   buildSettingsMutation,
@@ -47,8 +46,7 @@ export interface ApproveForMeSectionInjected {
 }
 
 export type ApproveForMeSectionProps =
-  PropsRuntime<'settings.plugin.item'>
-  & PropsLocale<'settings.approve-for-me'>
+  PropsLocale<'settings.approve-for-me'>
   & InjectFace<ApproveForMeSectionInjected>
 
 function ruleMessage(

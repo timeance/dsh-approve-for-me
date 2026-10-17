@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dsh: ["0.1.1-rc.2", "0.1.2-rc.1", "0.1.5-rc.2"]
+        dsh: ["0.1.1-rc.2", "0.1.2-rc.1", "0.1.5-rc.2", "0.2.0-rc.2", "0.2.1-rc.1"]
         os: [ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
@@ -36,10 +36,10 @@ jobs:
       - name: Select actual DSH runtime dependencies
         run: node scripts/prepare-compat.mjs "${{ matrix.dsh }}"
       - name: Install latest from lockfile
-        if: matrix.dsh == '0.1.5-rc.2'
+        if: matrix.dsh == '0.2.1-rc.1'
         run: pnpm install --frozen-lockfile
       - name: Resolve representative old version
-        if: matrix.dsh != '0.1.5-rc.2'
+        if: matrix.dsh != '0.2.1-rc.1'
         run: pnpm install --no-frozen-lockfile
       - name: Typecheck, test, and build on selected DSH version
         run: pnpm check

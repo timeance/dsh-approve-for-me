@@ -9,9 +9,9 @@ English | [中文](README.zh.md)
 
 `dsh-approve-for-me` is a DeepSeek Harness plugin for rule-gated automatic approval of Shell and PowerShell sandbox escalations. It applies fixed high-risk checks, literal command-prefix rules, and an optional tool-free LLM reviewer. Every successful decision grants one `allowed-once`; it never grants permanent access.
 
-The `0.3.1` candidate targets DeepSeek Harness `0.1.1-rc.2`, `0.1.2-rc.1`, and `0.1.5-rc.2`. Earlier alpha releases are no longer compatibility targets. These versions use the keyed third-party settings-card slot and shared client settings schema service.
+The `0.3.2` candidate targets DeepSeek Harness `0.1.1-rc.2`, `0.1.2-rc.1`, `0.1.5-rc.2`, `0.2.0-rc.2`, `0.2.1-rc.1`. Earlier alpha releases are no longer compatibility targets. DSH 0.2 uses live profile Config and the Plugins configuration slot; older releases keep their Settings section integration.
 
-All three target versions pass typecheck, 258 tests, and the plugin build with their actual DSH dependencies (one inapplicable transport test is skipped per version). Real Connection integration covers shared-route Settings reads/writes on 0.1.2 and 0.1.5, and legacy channel registration/disposal on 0.1.1. Full authenticated Web/Headless Profile smoke remains outstanding; this candidate stays draft pending that runtime verification.
+All five targets pass typecheck, tests, and the plugin build with their actual DSH dependencies: 272 tests on 0.2 (one inapplicable transport test skipped), and 271 tests on 0.1 (two inapplicable integration tests skipped). Integration checks cover real Connection routes, the published LlmRuntime with a local adapter, and live Loader Config updates on 0.2. Full authenticated Web/Headless Profile smoke and visual acceptance remain outstanding.
 
 > [!WARNING]
 > This is an unofficial plugin. It has not received an independent security audit and comes without warranty. Built-in checks cannot cover every command, argument, wrapper, or environment. Keep allowlists narrow and retain Harness's native human approval for important operations.
@@ -26,7 +26,7 @@ dsh web --host 127.0.0.1 --port 3080
 
 Then:
 
-1. Open `Settings -> Plugins -> Plugin configuration -> Approve for me`.
+1. On DSH 0.2, open `Plugins`, select `dsh-approve-for-me`, and open its configuration. On older releases use `Settings -> Plugins -> Plugin configuration -> Approve for me`.
 2. Add only command prefixes you are willing to review automatically.
 3. Select the `Approve for me` Access preset for the target agent or session.
 
@@ -60,7 +60,7 @@ A prefix is a parsed token prefix, not exact string equality. Additional argumen
 
 Known package lifecycle actions, path-qualified executables, direct scripts, wrappers, mutating PowerShell aliases, ambiguous parsing, and fixed high-risk patterns return to human approval even when a prefix appears to match.
 
-The Web card is optional. The client registers the keyed `settings.plugin.item` slot with key `approve-for-me` and consumes Harness's shared settings schema service. The card uses the plugin RPC registered on Harness's authenticated Connection, inheriting Connection authentication and Host/Origin protections; the plugin does not claim an additional plugin-owned loopback-only boundary. Persistence, schema validation, revision conflicts, redaction, and hot reload remain owned by Harness's Settings service. The card does not make approval decisions and does not depend on `llm-pi-ai`. The exported settings controller helpers require the host's schema validator explicitly; the browser bundle does not ship a second local schema rehydrator.
+The Web card is optional. On DSH 0.2 the client registers `plugins.bundle.config` with package key `dsh-approve-for-me`; older versions use keyed `settings.plugin.item` with key `approve-for-me`. It consumes Harness's shared settings schema service. The card uses the plugin RPC registered on Harness's authenticated Connection, inheriting Connection authentication and Host/Origin protections; the plugin does not claim an additional plugin-owned loopback-only boundary. Persistence, schema validation, revision conflicts, redaction, and hot reload remain owned by Harness's Settings service. The card does not make approval decisions and does not depend on `llm-pi-ai`. The exported settings controller helpers require the host's schema validator explicitly; the browser bundle does not ship a second local schema rehydrator.
 
 Check the package actually installed in the Profile:
 
@@ -127,32 +127,33 @@ Use `dsh plugin --profile web add dsh-approve-for-me@beta` for beta testing. Upd
 
 ## YAML configuration
 
-The Web page and `$DSH_HOME\settings.yaml` edit the same `approve-for-me` settings. Web configuration is optional.
+On DSH 0.2 the Web page edits the `approve-for-me` entry in the active Profile configuration. For manual edits use `$DSH_HOME\profiles\<profile>\cordis.patch.yml` and merge into the existing entry; do not replace other entries. On DSH 0.1 the equivalent fields live under `approve-for-me:` in `$DSH_HOME\settings.yaml`. Web configuration is optional.
 
 ### Recommended: rules and the current session model
 
 Omit `reviewer.provider` and `reviewer.model`. Each review inherits the provider and model of the session that requested approval.
 
 ```yaml
-approve-for-me:
-  version: 1
-  mode: rules-and-llm
-  rules:
-    commandPrefixes:
-      - tool: shell
-        prefix: git status
-      - tool: shell
-        prefix: git diff
-      - tool: pwsh
-        prefix: Get-Content -LiteralPath README.md
-    reviewerInstructions: >-
-      Only allow read-only repository inspection.
-  reviewer:
-    timeoutMs: 30000
-  limits:
-    trustedTranscriptChars: 12000
-    untrustedToolDataChars: 8000
-    reviewerOutputChars: 2000
+- id: approve-for-me
+  config:
+    version: 1
+    mode: rules-and-llm
+    rules:
+      commandPrefixes:
+        - tool: shell
+          prefix: git status
+        - tool: shell
+          prefix: git diff
+        - tool: pwsh
+          prefix: Get-Content -LiteralPath README.md
+      reviewerInstructions: >-
+        Only allow read-only repository inspection.
+    reviewer:
+      timeoutMs: 30000
+    limits:
+      trustedTranscriptChars: 12000
+      untrustedToolDataChars: 8000
+      reviewerOutputChars: 2000
 ```
 
 If the request session has no complete provider/model route, the reviewer cannot allow the request and it returns to human approval.
@@ -192,7 +193,7 @@ Default behavior:
 - Reviewer provider/model comes from the requesting session.
 - Positive command rules are empty.
 - Fixed high-risk checks run before user rules and the reviewer.
-- Every review uses a fresh agent with no tools.
+- Every review is isolated and has no tools: a direct LLM call on 0.2.1, or the legacy fresh reviewer agent when that API is available.
 - Failure, timeout, invalid output, ambiguity, or mismatch returns to human approval.
 
 Decision order:
@@ -213,7 +214,7 @@ A high-risk result stops automatic approval and returns the request to Harness. 
 | --- | --- |
 | Approval context | Reads the current escalation, correlated tool call, and a length-bounded transcript |
 | Reviewer input | Separates trusted guidance from untrusted tool data, limits content, and redacts common credential formats |
-| Reviewer capability | Fresh agent with no tools |
+| Reviewer capability | Isolated LLM call or fresh legacy agent, with no tools |
 | Network | Uses the provider route already configured in Harness |
 | Web writes | Authenticated Connection RPC delegates persistence to the Settings service |
 | Approval scope | One `allowed-once` for the current request |
@@ -228,7 +229,7 @@ A high-risk result stops automatic approval and returns the request to Harness. 
 | The reviewer did not run | Confirm `rules-and-llm`, a complete rule match, and a valid session model route |
 | Provider/model validation fails | Set both identifiers or clear both |
 | Saving reports a revision conflict | Reload the card, edit the latest value, and save again |
-| Installation reports peer warnings | Confirm Harness `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, or `0.1.2-rc.1` compatibility and run `pnpm check` |
+| Installation reports peer warnings | Confirm the Harness version is listed in Compatibility and run `pnpm check` |
 | Another Profile does not work | Install and configure the plugin in that Profile |
 
 ## FAQ
@@ -261,7 +262,7 @@ Yes. Install it in the `headless` Profile and configure YAML. The approval core 
 
 | Component | Baseline |
 | --- | --- |
-| DeepSeek Harness compatibility | `0.1.1-rc.2`, `0.1.2-alpha.1`, `0.1.2-alpha.4`, `0.1.2-rc.1` |
+| DeepSeek Harness compatibility | `0.1.1-rc.2`, `0.1.2-rc.1`, `0.1.5-rc.2`, `0.2.0-rc.2`, `0.2.1-rc.1` |
 | Node.js | `^22.19.0 || >=24.0.0` |
 | Cordis | `^4.0.1` |
 | npm channel | `@latest` for stable releases; `@beta` for beta testing |

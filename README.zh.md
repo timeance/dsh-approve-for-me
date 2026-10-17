@@ -9,9 +9,9 @@
 
 `dsh-approve-for-me` 是 DeepSeek Harness 的自动沙箱审批（automatic sandbox approval）插件，用于 Shell 和 PowerShell 的沙箱扩权（sandbox escalation）。它依次执行固定高风险检查、字面命令前缀规则和可选的无工具大模型复核器（LLM reviewer）。成功时只授予当前请求一次 `allowed-once`，不会永久授权。
 
-`0.3.1` 候选版本的兼容目标为 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-rc.1` 和 `0.1.5-rc.2`。不再承诺兼容早期 alpha 版本。这些版本都使用 keyed 第三方设置卡片和共享客户端 settings schema service。
+`0.3.2` 候选版本适配 DeepSeek Harness `0.1.1-rc.2`、`0.1.2-rc.1`、`0.1.5-rc.2`、`0.2.0-rc.2`、`0.2.1-rc.1`。不再承诺兼容早期 alpha 版本。DSH 0.2 使用 Profile 实时 Config 和 Plugins 配置入口；旧版保留 Settings section 集成。
 
-三个目标版本均已在各自实际 DSH 依赖下通过类型检查、258 项测试和插件构建（各跳过一个不适用的通道测试）。真实 Connection 集成验证覆盖 0.1.2/0.1.5 的共享路由 Settings 读写，以及 0.1.1 的旧通道注册/卸载。完整认证 Web/Headless Profile smoke 仍待完成，候选版本继续保持 Draft。
+五个目标版本均已使用各自实际 DSH 依赖通过类型检查、测试和插件构建：0.2 通过 272 项测试（跳过一个不适用的通道测试），0.1 通过 271 项测试（跳过两个不适用的集成测试）。集成检查覆盖真实 Connection 路由、发布版 LlmRuntime 配合本地适配器，以及 0.2 的 Loader 配置实时更新。完整认证 Web/Headless Profile smoke 和界面目视验收仍未执行。
 
 > [!WARNING]
 > 本项目不是 DeepSeek 官方插件，未经独立安全审计且不提供担保。内置检查无法覆盖所有命令、参数、wrapper 和环境差异。请使用尽可能窄的正向允许列表（allowlist），并为重要操作保留 Harness 原生人工审批。
@@ -26,7 +26,7 @@ dsh web --host 127.0.0.1 --port 3080
 
 然后：
 
-1. 打开 `Settings -> Plugins -> Plugin configuration -> Approve for me`。
+1. DSH 0.2 在 `Plugins` 中选择 `dsh-approve-for-me` 并打开配置；旧版仍使用 `Settings -> Plugins -> Plugin configuration -> Approve for me`。
 2. 只添加你愿意自动复核的命令前缀。
 3. 为目标 agent 或 session 选择 `Approve for me` Access preset。
 
@@ -62,7 +62,7 @@ PowerShell: Get-Content -LiteralPath README.md
 
 即使前缀看似匹配，已知的包管理器生命周期动作、带路径的可执行文件、直接脚本、wrapper、会写入的 PowerShell alias、解析歧义和固定高风险形态仍会转人工审批。
 
-Web 卡片是可选配置入口。客户端以 key `approve-for-me` 注册 keyed `settings.plugin.item` slot，并使用 Harness 共享的 settings schema service。卡片通过 Harness 已认证的 Connection 调用插件 RPC，并继承 Connection 的认证与 Host/Origin 防护；插件不声称另有独立的 loopback-only 边界。持久化、schema 校验、revision conflict、脱敏和热加载由 Harness Settings service 负责。卡片不做审批决策，也不依赖 `llm-pi-ai`。导出的 settings controller 辅助函数现在必须显式接收 Host 提供的 schema validator，浏览器 bundle 不再携带第二份本地 schema rehydrator。
+Web 卡片是可选配置入口。DSH 0.2 使用 `plugins.bundle.config` slot，key 为包名 `dsh-approve-for-me`；旧版保留 key 为 `approve-for-me` 的 `settings.plugin.item`。客户端继续使用 Harness 共享的 settings schema service。卡片通过 Harness 已认证的 Connection 调用插件 RPC，并继承 Connection 的认证与 Host/Origin 防护；插件不声称另有独立的 loopback-only 边界。持久化、schema 校验、revision conflict、脱敏和热加载由 Harness Settings service 负责。卡片不做审批决策，也不依赖 `llm-pi-ai`。导出的 settings controller 辅助函数现在必须显式接收 Host 提供的 schema validator，浏览器 bundle 不再携带第二份本地 schema rehydrator。
 
 检查 Profile 实际安装的版本：
 
@@ -129,32 +129,33 @@ dsh plugin --profile web list dsh-approve-for-me --depth 0
 
 ## YAML 配置
 
-Web 页面和 `$DSH_HOME\settings.yaml` 修改同一份 `approve-for-me` 设置。Web 只是可选写入方式。
+DSH 0.2 的 Web 页面修改当前 Profile 的 `approve-for-me` 配置条目。手动编辑时使用 `$DSH_HOME\profiles\<profile>\cordis.patch.yml`，合并到已有条目中，勿覆盖其他条目。DSH 0.1 则将相同字段放在 `$DSH_HOME\settings.yaml` 的 `approve-for-me:` 下。Web 只是可选写入方式。
 
 ### 推荐：规则 + 当前会话模型
 
 省略 `reviewer.provider` 和 `reviewer.model`，每次复核继承发起审批请求的 session provider/model：
 
 ```yaml
-approve-for-me:
-  version: 1
-  mode: rules-and-llm
-  rules:
-    commandPrefixes:
-      - tool: shell
-        prefix: git status
-      - tool: shell
-        prefix: git diff
-      - tool: pwsh
-        prefix: Get-Content -LiteralPath README.md
-    reviewerInstructions: >-
-      Only allow read-only repository inspection.
-  reviewer:
-    timeoutMs: 30000
-  limits:
-    trustedTranscriptChars: 12000
-    untrustedToolDataChars: 8000
-    reviewerOutputChars: 2000
+- id: approve-for-me
+  config:
+    version: 1
+    mode: rules-and-llm
+    rules:
+      commandPrefixes:
+        - tool: shell
+          prefix: git status
+        - tool: shell
+          prefix: git diff
+        - tool: pwsh
+          prefix: Get-Content -LiteralPath README.md
+      reviewerInstructions: >-
+        Only allow read-only repository inspection.
+    reviewer:
+      timeoutMs: 30000
+    limits:
+      trustedTranscriptChars: 12000
+      untrustedToolDataChars: 8000
+      reviewerOutputChars: 2000
 ```
 
 如果请求 session 没有完整的 provider/model 路由，reviewer 不会自动允许，请求转人工审批。
@@ -194,7 +195,7 @@ reviewer:
 - reviewer provider/model 继承发起请求的 session。
 - 正向命令规则为空。
 - 固定高风险检查先于用户规则和 reviewer。
-- 每次复核使用全新的无工具 agent。
+- 每次复核都隔离且不提供工具：0.2.1 使用单次 LLM 调用，提供旧 API 的版本仍使用全新 reviewer agent。
 - 失败、超时、无效输出、歧义或不匹配都会转人工审批。
 
 决策顺序：
@@ -215,7 +216,7 @@ reviewer:
 | --- | --- |
 | 审批上下文 | 读取当前 escalation、关联工具调用和有长度上限的 transcript |
 | reviewer 输入 | 区分可信说明与不可信工具数据，限制长度并清理常见凭据格式 |
-| reviewer 权限 | 使用全新 agent，不提供工具 |
+| reviewer 权限 | 隔离的 LLM 调用或旧版全新 agent，均不提供工具 |
 | 网络 | 使用 Harness 已配置的 provider 路由 |
 | Web 写入 | 已认证的 Connection RPC 委托 Settings service 持久化 |
 | 批准范围 | 只为当前请求返回一次 `allowed-once` |
@@ -230,7 +231,7 @@ reviewer:
 | reviewer 没有运行 | 确认使用 `rules-and-llm`、规则完整匹配且 session 模型路由有效 |
 | provider/model 校验失败 | 同时填写两项，或同时清空 |
 | 保存提示 revision conflict | 重新加载卡片，基于最新值编辑并保存 |
-| 安装出现 peer warning | 确认 Harness `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4` 或 `0.1.2-rc.1` 兼容性，并运行 `pnpm check` |
+| 安装出现 peer warning | 确认 Harness 版本在下方兼容范围内，并运行 `pnpm check` |
 | 另一个 Profile 不生效 | 在该 Profile 中单独安装和配置 |
 
 ## 常见问题
@@ -263,7 +264,7 @@ reviewer:
 
 | 项目 | 基线 |
 | --- | --- |
-| DeepSeek Harness 兼容范围 | `0.1.1-rc.2`、`0.1.2-alpha.1`、`0.1.2-alpha.4`、`0.1.2-rc.1` |
+| DeepSeek Harness 兼容范围 | `0.1.1-rc.2`、`0.1.2-rc.1`、`0.1.5-rc.2`、`0.2.0-rc.2`、`0.2.1-rc.1` |
 | Node.js | `^22.19.0 || >=24.0.0` |
 | Cordis | `^4.0.1` |
 | npm 通道 | 稳定版使用 `@latest`；beta 测试使用 `@beta` |

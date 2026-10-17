@@ -2,15 +2,46 @@ import * as settingsApi from '@deepseek-ai/dsh-settings'
 import * as connectionApi from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import type {
   SettingsNamespace,
-  SettingsSectionHooks,
 } from '@deepseek-ai/dsh-settings'
 import type z from '@deepseek-ai/schemastery'
 
 /** Shared namespace literal accepted by both the legacy and alpha.4 APIs. */
 export const APPROVE_FOR_ME_SETTINGS_NAMESPACE = 'approve-for-me' as SettingsNamespace
+
+// DSH 0.2 projects live Config fields directly; earlier lines install sections.
+export const usesProfileSettings = typeof (settingsApi as unknown as {
+  SettingsForms?: unknown
+}).SettingsForms === 'function'
+
+export interface SettingsSectionHooks<T> {
+  setSource(source: () => T): void
+  onChange(): void
+  validate(value: unknown): void
+}
+
+export type SettingsConfig<T> = T | { get(): T }
+
+export function settingsConfigValue<T>(value: SettingsConfig<T>): T {
+  return typeof (value as { get?: unknown }).get === 'function'
+    ? (value as { get(): T }).get()
+    : value as T
+}
+
+export function settingsConfigSchema<T>(schema: z<T>): z<T> {
+  // Keep the plain input contract while Cordis delivers a live root reference.
+  return usesProfileSettings
+    ? (schema as unknown as { volatile(): z<T> }).volatile()
+    : schema
+}
+
+/** The Settings bridge consumes no Peer; exact Fetch routes admit owners only. */
+export type ConnectionRpcHandler = (
+  endpoint: string,
+  payload: unknown,
+  signal: AbortSignal,
+) => Promise<import('./settings-remote-types.ts').ApproveForMeSettingsRpcResult<unknown>>
 
 type LegacyInstallSettingsSection = <T>(
   ctx: Context,
@@ -40,7 +71,18 @@ export function installSettingsSectionCompat<T>(
   schema: z<T>,
   entry: T,
   hooks: SettingsSectionHooks<T>,
+  current: () => T = () => entry,
 ): void {
+  if (usesProfileSettings) {
+    hooks.setSource(current)
+    ctx.inject(['settings'], scope => {
+      const settings = scope.get('settings') as unknown as {
+        configure(presentation: { auto: boolean }, owner: Context['fiber']): () => void
+      }
+      scope.effect(() => settings.configure({ auto: false }, ctx.fiber))
+    })
+    return
+  }
   const legacy = (settingsApi as unknown as {
     installSettingsSection?: LegacyInstallSettingsSection
   }).installSettingsSection
