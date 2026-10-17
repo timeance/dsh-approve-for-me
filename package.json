@@ -47,6 +47,7 @@
         "lib/types/**/*.d.ts",
         "cordis.patch.yml",
         "README.md",
+        "README.en.md",
         "README.zh.md",
         "SECURITY.md",
         "LICENSE"
