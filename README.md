@@ -15,6 +15,8 @@
 
 ## 快速开始
 
+DSH `0.2.2-rc.1` 需要 Node.js `>=24.9.0`，升级 DSH 前请先确认 Node.js 版本。
+
 ```powershell
 npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-approve-for-me@latest
@@ -91,7 +93,7 @@ dsh web --host 127.0.0.1 --port 3080
 如果 `@latest` 没有更新，先指定已发布版本：
 
 ```powershell
-$version = '0.3.2'
+$version = '0.3.3'
 dsh plugin --profile web add "dsh-approve-for-me@$version"
 dsh plugin --profile web list dsh-approve-for-me --depth 0
 ```
@@ -181,7 +183,7 @@ reviewer:
 ### 模型、数据与设置权限
 
 - 复核输入包含当前扩权请求、关联工具调用和有长度上限的会话记录。可信说明与不可信工具数据分开处理，并清理常见凭据格式。
-- 复核不提供工具。DSH `0.2.1-rc.1` 使用单次 LLM 调用；提供旧 API 的版本使用新的复核代理，避免继承父代理上下文。
+- 复核不提供工具。DSH 0.2 使用单次 LLM 调用；提供旧 API 的版本使用新的复核代理，避免继承父代理上下文。
 - 模型请求使用 Harness 配置的 provider 路由。配置无效、复核失败、超时或取消时，均转人工审批。
 - Web 页面只读写配置，不参与审批。持久化、schema 校验、修订冲突、脱敏和热加载由 Harness Settings service 负责。
 - 设置 RPC 通过 Harness 已认证的 Connection 提供，继承其认证与 Host/Origin 防护。插件没有额外的独立 loopback-only 授权边界，也不依赖 `llm-pi-ai`。
@@ -202,16 +204,16 @@ reviewer:
 
 ## 兼容性
 
-`0.3.2` 支持以下已验证的 DSH 版本，不承诺兼容早期 alpha 版本：
+`0.3.3` 支持以下已验证的 DSH 版本，不承诺兼容早期 alpha 版本：
 
 | 项目 | 支持范围 |
 | --- | --- |
-| DeepSeek Harness | `0.1.1-rc.2`、`0.1.2-rc.1`、`0.1.5-rc.2`、`0.2.0-rc.2`、`0.2.1-rc.1` |
-| Node.js | `^22.19.0 || >=24.0.0` |
+| DeepSeek Harness | `0.1.1-rc.2`、`0.1.2-rc.1`、`0.1.5-rc.2`、`0.2.0-rc.2`、`0.2.1-rc.1`、`0.2.1-rc.5`、`0.2.2-rc.1` |
+| Node.js | 插件为 `^22.19.0 || >=24.0.0`；DSH `0.2.2-rc.1` 要求 `>=24.9.0` |
 | Cordis | `^4.0.1` |
 | npm 通道 | `@latest` 用于正式版本，`@beta` 用于 beta 测试 |
 
-五个 DSH 版本均使用各自实际依赖完成类型检查、测试和构建。0.2 系列各通过 272 项测试、跳过 1 项；0.1 系列各通过 271 项测试、跳过 2 项。跳过项为对应版本不适用的通道或 Loader 集成测试。
+七个 DSH 版本纳入 Windows / Ubuntu 兼容性 CI。新增的 `0.2.1-rc.5` 和 `0.2.2-rc.1` 已使用各自实际依赖在 Windows / Node.js 24.13.0 下完成类型检查、测试和构建；其余五个版本保留既有验证，并由 CI 回归。0.2 系列各通过 272 项测试、跳过 1 项；0.1 系列各通过 271 项测试、跳过 2 项。跳过项为对应版本不适用的通道或 Loader 集成测试。
 
 集成检查覆盖真实 Connection 路由、发布版 LlmRuntime 配合本地适配器，以及新版 Loader 配置热更新。完整认证 Web/Headless Profile 冒烟测试和界面目视验收尚未执行。
 

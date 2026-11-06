@@ -1,4 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
+import AgentRegistry from '@deepseek-ai/dsh-agent'
 import ApprovalService from '@deepseek-ai/dsh-user-approval'
 import PermissionPresetService from '@deepseek-ai/dsh-permission-presets'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -12,8 +13,9 @@ import {
 
 async function setup(): Promise<Context> {
   const ctx = new Context()
-  await ctx.plugin(SessionStore)
-  await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(SessionStore).await()
+  await ctx.plugin(SessionProjectionRegistry).await()
+  await ctx.plugin(AgentRegistry).await()
   ctx.provide('shell', {
     sandboxMode: 'workspace-write',
     resolve() {
@@ -26,8 +28,8 @@ async function setup(): Promise<Context> {
       throw new Error('permission compatibility tests do not execute commands')
     },
   })
-  await ctx.plugin(ApprovalService)
-  await ctx.plugin(PermissionPresetService, {})
+  await ctx.plugin(ApprovalService).await()
+  await ctx.plugin(PermissionPresetService, {}).await()
   return ctx
 }
 
