@@ -2,14 +2,21 @@ import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 
 // Only changes the disposable CI checkout; release dependencies stay on latest.
 const version = process.argv[2]
-if (!['0.1.1-rc.2', '0.1.2-rc.1', '0.1.5-rc.2', '0.2.0-rc.2', '0.2.1-rc.1'].includes(version)) {
+if (!['0.1.1-rc.2', '0.1.2-rc.1', '0.1.5-rc.2', '0.2.0-rc.2', '0.2.1-rc.1', '0.2.1-rc.5', '0.2.2-rc.1'].includes(version)) {
   throw new Error('Unsupported compatibility target: ' + version)
 }
-if (version !== '0.2.1-rc.1') {
+if (version !== '0.2.2-rc.1') {
   const manifest = JSON.parse(readFileSync('package.json', 'utf8'))
   for (const name of Object.keys(manifest.devDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) manifest.devDependencies[name] = version
   }
+  manifest.dependencies['@deepseek-ai/schemastery'] = '~3.18.5'
+  Object.assign(manifest.devDependencies, {
+    '@deepseek-ai/cordis': '~4.0.5',
+    '@deepseek-ai/cordis-plugin-include': '~1.0.10',
+    '@deepseek-ai/cordis-plugin-loader': '~1.0.6',
+    '@deepseek-ai/cordis-plugin-group': '~1.0.5',
+  })
   // This package did not exist in 0.1.1; later Slots declarations require it.
   if (version === '0.1.1-rc.2') delete manifest.devDependencies['@deepseek-ai/dsh-client-store']
   writeFileSync('package.json', JSON.stringify(manifest, null, 4) + '\n')

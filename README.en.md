@@ -15,6 +15,8 @@ Provides automatic approval for DeepSeek Harness, with a conservative approach t
 
 ## Quick start
 
+DSH `0.2.2-rc.1` requires Node.js `>=24.9.0`. Check your Node.js version before upgrading DSH.
+
 ```powershell
 npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-approve-for-me@latest
@@ -91,7 +93,7 @@ Confirm the installed version, restart the Host, then refresh the browser. Refre
 If `@latest` does not update the Profile, request the exact published version:
 
 ```powershell
-$version = '0.3.2'
+$version = '0.3.3'
 dsh plugin --profile web add "dsh-approve-for-me@$version"
 dsh plugin --profile web list dsh-approve-for-me --depth 0
 ```
@@ -181,7 +183,7 @@ High-risk checks cover common cases such as parsing failures, file or permission
 ### Models, data, and settings permissions
 
 - Review input includes the current escalation request, the correlated tool call, and a length-bounded transcript. Trusted guidance and untrusted tool data are handled separately, with common credential formats redacted.
-- The reviewer has no tools. DSH `0.2.1-rc.1` uses a single LLM call; versions providing the legacy API use a fresh reviewer agent to avoid inheriting the parent agent's context.
+- The reviewer has no tools. DSH 0.2 uses a single LLM call; versions providing the legacy API use a fresh reviewer agent to avoid inheriting the parent agent's context.
 - Model requests use the provider route configured in Harness. Invalid configuration, review failure, timeout, or cancellation returns to human approval.
 - The Web page only reads and writes configuration; it does not make approval decisions. Harness's Settings service owns persistence, schema validation, revision conflicts, redaction, and hot reload.
 - Settings RPC runs through Harness's authenticated Connection and inherits its authentication and Host/Origin protections. The plugin has no additional independent loopback-only authorization boundary and does not depend on `llm-pi-ai`.
@@ -202,16 +204,16 @@ High-risk checks cover common cases such as parsing failures, file or permission
 
 ## Compatibility
 
-Version `0.3.2` supports the following verified DSH versions. Compatibility with earlier alpha versions is not promised:
+Version `0.3.3` supports the following verified DSH versions. Compatibility with earlier alpha versions is not promised:
 
 | Component | Supported range |
 | --- | --- |
-| DeepSeek Harness | `0.1.1-rc.2`, `0.1.2-rc.1`, `0.1.5-rc.2`, `0.2.0-rc.2`, `0.2.1-rc.1` |
-| Node.js | `^22.19.0 || >=24.0.0` |
+| DeepSeek Harness | `0.1.1-rc.2`, `0.1.2-rc.1`, `0.1.5-rc.2`, `0.2.0-rc.2`, `0.2.1-rc.1`, `0.2.1-rc.5`, `0.2.2-rc.1` |
+| Node.js | Plugin: `^22.19.0 || >=24.0.0`; DSH `0.2.2-rc.1` requires `>=24.9.0` |
 | Cordis | `^4.0.1` |
 | npm channel | `@latest` for stable releases; `@beta` for beta testing |
 
-All five DSH versions passed typecheck, tests, and the build with their actual dependencies. Each 0.2 version passed 272 tests with one skipped; each 0.1 version passed 271 tests with two skipped. Skipped tests cover transport or Loader integrations that do not apply to the corresponding version.
+All seven DSH versions are covered by compatibility CI on Windows and Ubuntu. The added `0.2.1-rc.5` and `0.2.2-rc.1` targets passed typecheck, tests, and the build with their actual dependencies on Windows / Node.js 24.13.0; the other five retain their previous verification and are checked again in CI. Each 0.2 version passed 272 tests with one skipped; each 0.1 version passed 271 tests with two skipped. Skipped tests cover transport or Loader integrations that do not apply to the corresponding version.
 
 Integration checks cover real Connection routes, the published LlmRuntime with a local adapter, and live configuration updates through the newer Loader. Full authenticated Web/Headless Profile smoke tests and visual acceptance have not been performed.
 
