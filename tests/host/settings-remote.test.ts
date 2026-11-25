@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
+import * as connectionApi from '@deepseek-ai/dsh-client-connection'
 import {
   SettingsConflictError,
 } from '@deepseek-ai/dsh-settings'
@@ -12,6 +12,7 @@ import {
 import { ApproveForMeSettingsRemote } from '../../src/settings-remote-host.ts'
 
 const NS = APPROVE_FOR_ME_SETTINGS_NAMESPACE
+const { HostConnectionService } = connectionApi
 
 async function bench(options: {
   present?: boolean
@@ -156,7 +157,7 @@ describe('approve-for-me settings Remote', () => {
   })
 })
 
-// Use the published Connection implementation without webServer injection, as in 0.1.5.
+// Exercise the published Connection carrier without binding an HTTP server.
 it.runIf('fetch' in HostConnectionService.prototype)('loads Settings on the real shared carrier, validates requests and disposes routes', async () => {
   const ctx = new Context()
   const mutate = vi.fn(async () => {})
@@ -165,9 +166,18 @@ it.runIf('fetch' in HostConnectionService.prototype)('loads Settings on the real
     mutate,
     writable: true,
   } as never)
-  let connection!: HostConnectionService
+  const { ConnectionAuthentication } = connectionApi as unknown as {
+    ConnectionAuthentication?: new (ctx: Context) => unknown
+  }
+  const authentication = ConnectionAuthentication === undefined ? undefined : ctx.plugin({
+    name: 'test-connection-authentication',
+    apply(scope) { new ConnectionAuthentication(scope) },
+  })
+  await authentication?.await()
+  let connection!: InstanceType<typeof HostConnectionService>
   const owner = ctx.plugin({
     name: 'test-connection',
+    inject: ConnectionAuthentication === undefined ? [] : ['connection.authentication'],
     apply(scope) {
       // This test enters after HTTP authentication; no auth methods are called.
       connection = new HostConnectionService(...[scope, [], {}] as unknown as ConstructorParameters<typeof HostConnectionService>)
@@ -178,7 +188,7 @@ it.runIf('fetch' in HostConnectionService.prototype)('loads Settings on the real
   try {
     await remote.await()
     expect(ctx.get('approveForMeSettings')).toBeDefined()
-    const carrier = connection.createSharedFetchHandler(...['/api'] as unknown as Parameters<HostConnectionService['createSharedFetchHandler']>)
+    const carrier = connection.createSharedFetchHandler(...['/api'] as unknown as Parameters<typeof connection.createSharedFetchHandler>)
     const fetch = (request: Request) => carrier.fetch(...[request, (connection as unknown as { browserPeer?: unknown }).browserPeer] as unknown as Parameters<typeof carrier.fetch>)
     const request = (endpoint: string, payload: unknown = {}, method = `approve-for-me/${endpoint}`) =>
       new Request(`http://localhost/api/approve-for-me/${endpoint}`, {
@@ -211,6 +221,7 @@ it.runIf('fetch' in HostConnectionService.prototype)('loads Settings on the real
   } finally {
     await remote.dispose()
     await owner.dispose()
+    await authentication?.dispose()
   }
 })
 

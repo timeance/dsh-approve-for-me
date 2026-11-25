@@ -15,7 +15,7 @@ Provides automatic approval for DeepSeek Harness, with a conservative approach t
 
 ## Quick start
 
-DSH `0.2.2-rc.1` requires Node.js `>=24.9.0`. Check your Node.js version before upgrading DSH.
+DSH `0.2.2-rc.5` requires Node.js `>=24.9.0`. DSH `0.2.3-alpha.2` requires `^24.22.3 || >=26.13.1`.
 
 ```powershell
 npm install -g @deepseek-ai/dsh
@@ -204,16 +204,16 @@ High-risk checks cover common cases such as parsing failures, file or permission
 
 ## Compatibility
 
-Version `0.3.3` supports the following verified DSH versions. Compatibility with earlier alpha versions is not promised:
+The table lists the DSH versions supported by the current source. Support for `0.2.2-rc.5` and `0.2.3-alpha.2` has yet to ship on npm.
 
 | Component | Supported range |
 | --- | --- |
-| DeepSeek Harness | `0.1.1-rc.2`, `0.1.2-rc.1`, `0.1.5-rc.2`, `0.2.0-rc.2`, `0.2.1-rc.1`, `0.2.1-rc.5`, `0.2.2-rc.1` |
-| Node.js | Plugin: `^22.19.0 || >=24.0.0`; DSH `0.2.2-rc.1` requires `>=24.9.0` |
-| Cordis | `^4.0.1` |
+| DeepSeek Harness | `0.1.1-rc.2`, `0.1.2-rc.1`, `0.1.5-rc.2`, `0.2.0-rc.2`, `0.2.1-rc.1`, `0.2.1-rc.5`, `0.2.2-rc.1`, `0.2.2-rc.5`, `0.2.3-alpha.2` |
+| Node.js | The plugin requires `^22.19.0 || >=24.0.0`. Use a Node.js version that also meets the requirements of your DSH version |
+| Cordis | `^4.0.1 || ~4.2.0-alpha.1` |
 | npm channel | `@latest` for stable releases; `@beta` for beta testing |
 
-All seven DSH versions are covered by compatibility CI on Windows and Ubuntu. The added `0.2.1-rc.5` and `0.2.2-rc.1` targets passed typecheck, tests, and the build with their actual dependencies on Windows / Node.js 24.13.0; the other five retain their previous verification and are checked again in CI. Each 0.2 version passed 272 tests with one skipped; each 0.1 version passed 271 tests with two skipped. Skipped tests cover transport or Loader integrations that do not apply to the corresponding version.
+The compatibility CI matrix covers these versions on Windows and Ubuntu. With their published dependencies on Windows and Node.js 24.22.3, `0.2.2-rc.5` and `0.2.3-alpha.2` each passed typecheck, the build, and 272 tests. The legacy Connection test does not apply and was skipped on both versions.
 
 Integration checks cover real Connection routes, the published LlmRuntime with a local adapter, and live configuration updates through the newer Loader. Full authenticated Web/Headless Profile smoke tests and visual acceptance have not been performed.
 
