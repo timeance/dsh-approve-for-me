@@ -3,7 +3,6 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import { ApproveForMeSection } from './ApproveForMeSection.tsx'
 import type { ApproveForMeSectionInjected } from './ApproveForMeSection.tsx'
 import {
